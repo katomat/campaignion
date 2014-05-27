@@ -17,7 +17,26 @@ function campaignion_recent_supporters_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
+  $items['admin/config/content/recent-supporters'] = array(
+    'title'            => t('Recent Supporter Settings'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('recent_supporters_settings_form'),
+    'description'      => 'Recent Supporter settings.',
+    'access arguments' => array('administer recent supporters'),
+    'file'             => 'campaignion_recent_supporters.admin.inc',
+  );
   return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function campaignion_recent_supporters_permission() {
+  $permissions['administer recent supporters'] = array(
+    'title'       => t('Administer recent supporter settings'),
+    'description' => t('Administer site-wide settings for the recent supporters block.'),
+  );
+  return $permissions;
 }
 
 function _campaignion_recent_supporters_countries_dir() {
@@ -123,7 +142,11 @@ function campaignion_recent_supporters_libraries_info() {
 function campaignion_recent_supporters_block_info() {
   $info = array(
     'recent_supporters' => array(
-      'info' => t('Recent supporters'),
+      'info'   => t('Recent supporters'),
+      'region' => 'sidebar_second',
+    ),
+    'recent_supporters_all_actions' => array(
+      'info'   => t('Recent supporters accumulated for all action pages'),
       'region' => 'sidebar_second',
     ),
   );
@@ -135,12 +158,23 @@ function campaignion_recent_supporters_block_info() {
  */
 function campaignion_recent_supporters_block_view($delta = '') {
   $block = NULL;
+  if ($delta === 'recent_supporters') {
+    _campaignion_recent_supporters_block_recent_supporters($block);
+  }
+  elseif ($delta === 'recent_supporters_all_actions') {
+    _campaignion_recent_supporters_block_recent_supporters_all_actions($block);
+  }
+  return $block;
+}
 
+function _campaignion_recent_supporters_block_recent_supporters(&$block) {
   if (($node = menu_get_object()) == FALSE || isset($node->nid) == FALSE) {
     return NULL;
   }
 
-  /* thank_you_page integration */
+  /* thank_you_page integration:
+     Try to get the NID of the referring action page from the "share" get
+     parameter and get the recent supporters from this action page*/
   if (   $node->type == "thank_you_page"
       && isset( $_GET['share']) == TRUE
       && preg_match('@node/(\d+)@', $_GET['share'], $get_nid) == 1) {
@@ -163,7 +197,7 @@ function campaignion_recent_supporters_block_view($delta = '') {
     $country = isset($field['options']['country_toggle']) ? $field['options']['country_toggle'] : 0;
 
     $block['subject'] = t('Recent supporters');
-    $supporters = _campaignion_recent_supporters_recent_supporters($node->nid);
+    $supporters = _campaignion_recent_supporters_get_supporters_one_action($node->nid);
     $block['content'] = theme('recent_supporters', array(
       'supporters' => $supporters,
       'show_country' => ($country == '1') ? TRUE : FALSE,
@@ -180,7 +214,47 @@ function campaignion_recent_supporters_block_view($delta = '') {
       drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));
     }
   }
-  return $block;
+}
+
+function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
+  $saved_settings = variable_get('recent_supporters_all_actions_settings', array());
+  $defaults = array(
+    'visible_count'  => 6,
+    'cycle_toggle'   => 0,
+    'country_toggle' => 1,
+    'types'          => array(),
+  );
+  $saved_settings = $saved_settings + $defaults;
+
+  $types            = array();
+  foreach ($saved_settings['types'] as $type => $setting) {
+    if ($setting['enabled']) {
+      $types[$type] = $type;
+    }
+  }
+  $polling_url      = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'campaignion_recent_supporters') . '/poll_all.php?types=' . implode(',', $types);
+  $block['subject'] = t('Recent supporters');
+  $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types);
+  $block['content'] = theme('recent_supporters', array(
+    'supporters'   => $supporters,
+    'show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
+  ));
+  drupal_add_js(
+    array(
+      'recentSupporters' => array(
+        'cycleSupporters' => $saved_settings['cycle_toggle'],
+        'showCountry'     => $saved_settings['country_toggle'],
+        'visibleCount'    => $saved_settings['visible_count'],
+        'pollingURL'      => $polling_url,
+        'types'           => implode(',', $types),
+      )
+    ),
+    'setting'
+  );
+  if ($saved_settings['country_toggle']) {
+    $dir = _campaignion_recent_supporters_countries_dir();
+    drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));
+  }
 }
 
 /**
@@ -262,22 +336,33 @@ function theme_recent_supporters($variables) {
  * callback function for campaignion_recent_supporters_menu()
  */
 function campaignion_recent_supporters_json($nid) {
-  $supporters = _campaignion_recent_supporters_recent_supporters($nid);
+  $supporters = _campaignion_recent_supporters_get_supporters_one_action($nid);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_json_output(array($nid => $supporters));
 }
 
 /**
+ * poll_all.php callback function for getting recent supporter of all action pages
+ */
+function campaignion_recent_supporters_all_action_json($types) {
+  $types      = explode(',', $types);
+  $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types);
+  drupal_add_http_header("Access-Control-Allow-Origin", "*");
+  drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
+  drupal_json_output($supporters);
+}
+/**
  * callback funtion
  */
 function _campaignion_recent_supporters_strip_callback($value) {
   return mb_substr($value, 0, 1);
 };
+
 /**
  * helper function: query the activities for a specific nid
  */
-function _campaignion_recent_supporters_recent_supporters($nid, $limit = 10) {
+function _campaignion_recent_supporters_get_supporters_one_action($nid, $limit = 10) {
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   $sql = <<<SQL
 SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid
@@ -291,6 +376,39 @@ WHERE n.nid=:nid OR n.nid IN(SELECT tn.nid FROM {node} tn INNER JOIN {node} n US
 ORDER BY ca.created DESC
 SQL;
   $result = db_query_range($sql, 0, $limit - 1, array(':nid' => $nid));
+
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield);
+}
+
+/**
+ * helper function: query all supporters for specified types
+ */
+function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $limit = 10) {
+  $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
+  $sql = <<<SQL
+SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid
+  FROM {node} n
+  INNER JOIN {campaignion_activity_webform} caw ON caw.nid = n.nid
+  INNER JOIN {campaignion_activity} ca ON ca.activity_id = caw.activity_id AND ca.type = 'webform_submission'
+  INNER JOIN {redhen_contact} rc USING (contact_id)
+  INNER JOIN {webform_tracking} wt ON wt.nid = caw.nid AND wt.sid = caw.sid
+  LEFT OUTER JOIN {field_data_$addressfield} fdfa ON fdfa.entity_id = rc.contact_id
+    WHERE n.type IN (:types)
+  ORDER BY ca.created DESC
+SQL;
+  $result = db_query_range(
+    $sql,
+    0,
+    $limit - 1,
+    array(':types' => $types)
+  );
+
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield);
+}
+/**
+ * helper function: compile a list of recent supporters from the DB result parameter
+ */
+function _campaignion_recent_supporters_build_supporter_list($result, $addressfield) {
 
   $supporters = array();
   foreach ($result as $item) {
@@ -313,10 +431,10 @@ SQL;
       $supporter['last_name'] = implode(' ', array_map('_campaignion_recent_supporters_strip_callback', $ln_array));
     }
     $supporter['timestamp']  = $item->timestamp;
-    $supporter['rfc8601']  = date('c', $item->timestamp);
-    $countryval = $addressfield . '_country';
-    $supporter['country']  = empty($item->$countryval) ? $item->country : $item->$countryval;
-    $supporters[] = $supporter;
+    $supporter['rfc8601']    = date('c', $item->timestamp);
+    $countryval              = $addressfield . '_country';
+    $supporter['country']    = empty($item->$countryval) ? $item->country : $item->$countryval;
+    $supporters[]            = $supporter;
   }
 
   return $supporters;
