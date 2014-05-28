@@ -310,7 +310,12 @@ function theme_recent_supporters($variables) {
   else {
     $output .= "<ul class=\"recent-supporters\">\n";
     foreach($supporters as $supporter) {
-      $output .= "<li class=\"supporter\">\n";
+      $action_type = "";
+      if (!empty($supporter['action_type'])) {
+        $action_type = "action-type-" . $supporter['action_type'];
+      }
+      $output .= "<li class=\"supporter $action_type\">\n";
+
       if ($show_country && isset($supporter['country'])) {
         $classes = empty($supporter['country']) ? 'no-cc' : "flag-".strtolower(drupal_clean_css_identifier($supporter['country']));
         $country_name = (isset($supporter['country']) && isset($countries[$supporter['country']])) ? $countries[$supporter['country']] : '';
@@ -319,12 +324,21 @@ function theme_recent_supporters($variables) {
         $output .= $supporter['country'];
         $output .= "</span>\n";
       }
-      $output .= "<span class=\"name\">";
-      $output .= implode(" ", array($supporter['first_name'], $supporter['last_name']));
-      $output .= "</span>\n";
-      $output .= "<span class=\"time\" data-timestamp=\"".$supporter['timestamp']."\" title=\"".$supporter['rfc8601']."\">";
+      if (isset($supporter['text'])) {
+        $first_name = $supporter['first_name'] . (!empty($supporter['first_name']) ? " " : "");
+        $vars['!supporter_name'] = "<span class=\"name\">" . $first_name . "<span class=\"last_name\">" . $supporter['last_name'] . "</span></span>\n";
+        $vars['!action_title']   = $supporter['action_title'];
+        $output .= format_string($supporter['text'], $vars);
+      }
+      else {
+        $output .= "<span class=\"name\">";
+        $output .= implode(" ", array($supporter['first_name'], $supporter['last_name']));
+        $output .= "</span>\n";
+      }
+      $output .= "\n<span class=\"time\" data-timestamp=\"".$supporter['timestamp']."\" title=\"".$supporter['rfc8601']."\">";
       $output .= date('d.m.Y H:i', $supporter['timestamp']);
       $output .= "</span>\n";
+
       $output .= "</li>\n";
     }
     $output .= "</ul>\n";
@@ -339,7 +353,7 @@ function campaignion_recent_supporters_json($nid) {
   $supporters = _campaignion_recent_supporters_get_supporters_one_action($nid);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
-  drupal_json_output(array($nid => $supporters));
+  drupal_json_output(array('supporters' => $supporters));
 }
 
 /**
@@ -350,7 +364,7 @@ function campaignion_recent_supporters_all_action_json($types) {
   $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
-  drupal_json_output($supporters);
+  drupal_json_output(array('supporters' => $supporters));
 }
 /**
  * callback funtion
@@ -365,7 +379,7 @@ function _campaignion_recent_supporters_strip_callback($value) {
 function _campaignion_recent_supporters_get_supporters_one_action($nid, $limit = 10) {
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   $sql = <<<SQL
-SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid
+SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid, n.nid
 FROM {node} n
   INNER JOIN {campaignion_activity_webform} caw ON caw.nid = n.nid
   INNER JOIN {campaignion_activity} ca ON ca.activity_id=caw.activity_id AND ca.type='webform_submission'
@@ -386,7 +400,7 @@ SQL;
 function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $limit = 10) {
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   $sql = <<<SQL
-SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid
+SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid, n.type, n.title
   FROM {node} n
   INNER JOIN {campaignion_activity_webform} caw ON caw.nid = n.nid
   INNER JOIN {campaignion_activity} ca ON ca.activity_id = caw.activity_id AND ca.type = 'webform_submission'
@@ -403,13 +417,18 @@ SQL;
     array(':types' => $types)
   );
 
-  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield);
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, TRUE);
 }
+
 /**
  * helper function: compile a list of recent supporters from the DB result parameter
  */
-function _campaignion_recent_supporters_build_supporter_list($result, $addressfield) {
-
+function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $has_text = FALSE) {
+  static $texts;
+  if ($has_text && !isset($texts)) {
+    $settings = variable_get('recent_supporters_all_actions_settings', array());
+    $texts = $settings['types'];
+  }
   $supporters = array();
   foreach ($result as $item) {
     $supporter = array();
@@ -434,9 +453,17 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
     $supporter['rfc8601']    = date('c', $item->timestamp);
     $countryval              = $addressfield . '_country';
     $supporter['country']    = empty($item->$countryval) ? $item->country : $item->$countryval;
-    $supporters[]            = $supporter;
+    if ($has_text) {
+      $supporter['text']         = $texts[$item->type]['text'];
+      $supporter['action_title'] = $item->title;
+      $supporter['action_type']  = $item->type;
+    }
+    if (isset($item->nid)) {
+      $supporter['nid'] = $item->nid;
+    }
+    $supporters[] = $supporter;
   }
-
+  
   return $supporters;
 }
 

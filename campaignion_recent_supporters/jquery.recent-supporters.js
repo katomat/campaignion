@@ -106,7 +106,7 @@
      * @param {Object} data The received data, namespaced by an integer
      */
     function updateRecentSupportersContainer (data) {
-      var supporters = data[parseInt(settings.nodeID, 10)];
+      var supporters = data.supporters;
       var newSupporters = $.map(supporters, function (s, i) {
         if (parseInt(s.timestamp, 10) > lastSupporterTimestamp) {
           return s;

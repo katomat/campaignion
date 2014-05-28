@@ -26,7 +26,7 @@ if ($bootstrap = campaignion_recent_supporters_bootstrap_inc()) {
 _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
-if (!isset($_GET['nid'])) {
+if (!isset($_GET['types'])) {
   exit;
 }
 
