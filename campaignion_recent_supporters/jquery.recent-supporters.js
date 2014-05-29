@@ -74,8 +74,8 @@
     var settings = $.extend({}, defaults, options );
 
     var nextPoll = settings.pollingInterval;
-    var $ul = $('ul.recent-supporters');
     var $container = this;
+    var $ul = $('ul.recent-supporters', $container);
     var lastSupporterTimestamp = getMostRecentTimestamp();
     var pollErrorCount = 0;
 
@@ -242,7 +242,7 @@
       if (settings.showCountry) {
         var countryCode = supporter.country ? supporter.country.toLowerCase() : "no-cc";
         var countryName = supporter.country in settings.countries ? settings.countries[supporter.country] : '';
-        $li.append(' <span title="'+countryName+'" class="country flag flag-'+countryCode+'">'+supporter.country+'</span>');
+        $li.prepend('<span title="'+countryName+'" class="country flag '+countryCode+'">'+supporter.country+'</span> ');
       }
 
       return $li;
