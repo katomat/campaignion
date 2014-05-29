@@ -44,6 +44,13 @@ function _campaignion_recent_supporters_countries_dir() {
   return $directory_path . '/countries';
 }
 
+function campaignion_recent_supporters_preprocess_block(&$variables) {
+  if (   $variables['block']->module == 'campaignion_recent_supporters'
+      && !empty($variables['block']->block_html_id)) {
+    $variables['block_html_id'] = $variables['block']->block_html_id;
+  }
+}
+
 function campaignion_recent_supporters_preprocess_html($variables) {
   $langcode = '';
   if (!empty($variables['language'])) {
@@ -201,7 +208,12 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     $block['content'] = theme('recent_supporters', array(
       'supporters' => $supporters,
       'show_country' => ($country == '1') ? TRUE : FALSE,
+      'all_actions' => FALSE,
     ));
+
+    // set an unique id to use as key in Drupal.settings array
+    $block_id = drupal_html_id('campaignion-recent-supporters');
+    $block['block_html_id'] = $block_id;
     drupal_add_js(array('recentSupporters' => array(
       'cycleSupporters' => $cycle,
       'showCountry' => $country,
@@ -238,10 +250,15 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
   $block['content'] = theme('recent_supporters', array(
     'supporters'   => $supporters,
     'show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
+    'all_actions' => TRUE,
   ));
 
   // set configured texts in generic recentSupporter setting
   $texts = _campaignion_recent_supporters_get_action_texts($types);
+  // set an unique id to use as key in Drupal.settings array
+  // and fill with block specific settings
+  $block_id = drupal_html_id('campaignion-recent-supporters');
+  $block['block_html_id'] = $block_id;
   drupal_add_js(
     array(
       'recentSupporters' => array(
@@ -291,7 +308,7 @@ function campaignion_recent_supporters_country_json($filename) {
  */
 function campaignion_recent_supporters_theme() {
   $theme['recent_supporters'] = array(
-    'variables' => array('supporters' => array(), 'show_country' => FALSE),
+    'variables' => array('supporters' => array(), 'show_country' => FALSE, 'all_actions' => FALSE),
   );
   return $theme;
 }
@@ -311,8 +328,10 @@ function theme_recent_supporters($variables) {
     return $output;
   }
   else {
-    $output .= "<ul class=\"recent-supporters\">\n";
+    $all_actions = $variables['all_actions'] ? 'recent-supporters-all-actions' : 'recent-supporters-single-action';
     $texts = _campaignion_recent_supporters_get_action_texts();
+
+    $output .= "<ul class=\"recent-supporters $all_actions\">\n";
     foreach($supporters as $supporter) {
       $action_type = "";
       if (!empty($supporter['action_type'])) {
