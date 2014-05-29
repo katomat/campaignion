@@ -215,12 +215,19 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     $block_id = drupal_html_id('campaignion-recent-supporters');
     $block['block_html_id'] = $block_id;
     drupal_add_js(array('recentSupporters' => array(
-      'cycleSupporters' => $cycle,
-      'showCountry' => $country,
-      'visibleCount' => $visible_count,
-      'pollingURL' => $polling_url,
-      'nodeID' => $node->nid
+      'blocks' => array(
+        $block_id => array(
+          'cycleSupporters' => $cycle,
+          'showCountry' => $country,
+          'visibleCount' => $visible_count,
+          'pollingURL' => $polling_url,
+          'nodeID' => $node->nid,
+          'allActions' => FALSE,
+        )
+      )
     )), 'setting');
+
+    // @TODO only load countries once if more than one block on a page
     if ($country) {
       $dir = _campaignion_recent_supporters_countries_dir();
       drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));
@@ -255,22 +262,32 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
 
   // set configured texts in generic recentSupporter setting
   $texts = _campaignion_recent_supporters_get_action_texts($types);
-  // set an unique id to use as key in Drupal.settings array
-  // and fill with block specific settings
-  $block_id = drupal_html_id('campaignion-recent-supporters');
-  $block['block_html_id'] = $block_id;
   drupal_add_js(
     array(
       'recentSupporters' => array(
-        'cycleSupporters' => $saved_settings['cycle_toggle'],
-        'showCountry'     => $saved_settings['country_toggle'],
-        'visibleCount'    => $saved_settings['visible_count'],
-        'pollingURL'      => $polling_url,
-        'types'           => implode(',', $types),
+        'actionTexts'    => $texts,
       )
     ),
     'setting'
   );
+
+  // set an unique id to use as key in Drupal.settings array
+  // and fill with block specific settings
+  $block_id = drupal_html_id('campaignion-recent-supporters');
+  $block['block_html_id'] = $block_id;
+  drupal_add_js(array('recentSupporters' => array(
+    'blocks' => array(
+      $block_id => array(
+        'cycleSupporters' => $saved_settings['cycle_toggle'],
+        'showCountry'     => $saved_settings['country_toggle'],
+        'visibleCount'    => $saved_settings['visible_count'],
+        'pollingURL'      => $polling_url,
+        'types'           => $types,
+        'allActions'      => TRUE,
+      )
+    )
+  )),'setting');
+
   if ($saved_settings['country_toggle']) {
     $dir = _campaignion_recent_supporters_countries_dir();
     drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));

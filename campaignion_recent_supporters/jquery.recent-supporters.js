@@ -68,6 +68,7 @@
       showCountry: true,
       maxPollErrorCount: 15,
       nodeID: '0',
+      texts: {},
       countries: {}
     }
     var settings = $.extend({}, defaults, options );
@@ -216,14 +217,49 @@
     function supporterElement (supporter) {
       var $li = $('<li>');
       var timestamp = supporter.timestamp || Math.floor(new Date().getTime() / 1000);
-      var name = [supporter.first_name, supporter.last_name].join(" ")
-      $li.addClass('supporter').append('<span class="name">'+name+'</span>'+"\n"+'<span class="time" data-timestamp="'+timestamp+'" title="'+supporter.rfc8601+'">'+timestamp+'</span>');
+      var lastName = '<span class="last_name">'+supporter.last_name+'</span>';
+      var name = [supporter.first_name, lastName].join(" ")
+      var nameHtml = '<span class="name">'+name+'</span>';
+
+      var text = nameHtml;
+      if (typeof supporter.action_type !== 'undefined' && supporter.action_type) {
+        var tokens = {
+          "!supporter_name": nameHtml,
+          "!action_title": supporter.action_title
+        }
+        if (settings.texts[supporter.action_type] !== 'undefined' && settings.texts[supporter.action_type].length > 0) {
+          text = replaceTokensInText(settings.texts[supporter.action_type], tokens);
+        }
+      }
+      var supporterHtml = text;
+      supporterHtml += "\n"+'<span class="time" data-timestamp="'+timestamp+'" title="'+supporter.rfc8601+'">'+timestamp+'</span>';
+      $li.addClass('supporter').append(supporterHtml);
+
+      if (supporter.action_type !== 'undefined' && supporter.action_type.length > 0) {
+        $li.addClass('action-type-'+supporter.action_type);
+      }
+
       if (settings.showCountry) {
         var countryCode = supporter.country ? supporter.country.toLowerCase() : "no-cc";
         var countryName = supporter.country in settings.countries ? settings.countries[supporter.country] : '';
         $li.append(' <span title="'+countryName+'" class="country flag flag-'+countryCode+'">'+supporter.country+'</span>');
       }
+
       return $li;
+    }
+
+    /**
+     * Subsitutes tokens in a string with provided replacement strings.
+     *
+     * @param {String} text A string with tokens to replace (tokens like "!token")
+     * @param {Object}  tokens A object with token strings (e.g. "!token") as keys, and substitution strings (e.g. "Subsitution string") as values.
+     * @return {String} Returns the text string with any found tokens replaced, but leaves tokens where no substitution was provided.
+     */
+    function replaceTokensInText (text, tokens) {
+      text = text.replace(/(![A-Za-z_-]+)/g, function(a,b) {
+        return (typeof tokens[b] !== 'undefined') ? tokens[b] : b;
+      });
+      return text
     }
 
     /**
