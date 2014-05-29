@@ -12,6 +12,7 @@ function recent_supporters_settings_form($form, &$form_state) {
     'visible_count'  => 6,
     'cycle_toggle'   => 0,
     'country_toggle' => 1,
+    'name_display' => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     'types'          => array(),
   );
   $saved_settings = $saved_settings + $defaults;
@@ -21,6 +22,14 @@ function recent_supporters_settings_form($form, &$form_state) {
     '#type'        => 'fieldset',
   );
 
+  $form['general_settings']['name_display'] = array(
+    '#title' => t('Supporter name display'),
+    '#description' => t('Configure the information displayed about the supporters.'),
+    '#type' => 'select',
+    '#options' => _campaignion_recent_supporters_name_display_options(),
+    '#attributes' => array(),
+    '#default_value' => $saved_settings['name_display'],
+  );
   $form['general_settings']['visible_count'] = array(
     '#title'         => t('Number of max. visible supporters.'),
     '#description'   => t('Number of max. visible supporters.'),
@@ -80,6 +89,7 @@ function recent_supporters_settings_form($form, &$form_state) {
 
 function recent_supporters_settings_form_submit($form, &$form_state) {
   $result = array(
+    'name_display'   => $form_state['values']['name_display'],
     'visible_count'  => $form_state['values']['visible_count'],
     'cycle_toggle'   => $form_state['values']['cycle_toggle'],
     'country_toggle' => $form_state['values']['country_toggle'],
