@@ -239,6 +239,9 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
     'supporters'   => $supporters,
     'show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
   ));
+
+  // set configured texts in generic recentSupporter setting
+  $texts = _campaignion_recent_supporters_get_action_texts($types);
   drupal_add_js(
     array(
       'recentSupporters' => array(
@@ -309,6 +312,7 @@ function theme_recent_supporters($variables) {
   }
   else {
     $output .= "<ul class=\"recent-supporters\">\n";
+    $texts = _campaignion_recent_supporters_get_action_texts();
     foreach($supporters as $supporter) {
       $action_type = "";
       if (!empty($supporter['action_type'])) {
@@ -324,11 +328,11 @@ function theme_recent_supporters($variables) {
         $output .= $supporter['country'];
         $output .= "</span>\n";
       }
-      if (isset($supporter['text'])) {
+      if (isset($supporter['action_type'])) {
         $first_name = $supporter['first_name'] . (!empty($supporter['first_name']) ? " " : "");
         $vars['!supporter_name'] = "<span class=\"name\">" . $first_name . "<span class=\"last_name\">" . $supporter['last_name'] . "</span></span>\n";
         $vars['!action_title']   = $supporter['action_title'];
-        $output .= format_string($supporter['text'], $vars);
+        $output .= format_string($texts[$supporter['action_type']], $vars);
       }
       else {
         $output .= "<span class=\"name\">";
@@ -421,14 +425,34 @@ SQL;
 }
 
 /**
- * helper function: compile a list of recent supporters from the DB result parameter
+ * helper function: get the configured action texts
+ * returns only the texts for the types in the parameter, or all if the parameter is an empty array
  */
-function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $has_text = FALSE) {
+function _campaignion_recent_supporters_get_action_texts($types = array()) {
   static $texts;
-  if ($has_text && !isset($texts)) {
+  if (!isset($texts)) {
     $settings = variable_get('recent_supporters_all_actions_settings', array());
     $texts = $settings['types'];
   }
+  if (!empty($types)) {
+    $filtered_types = array_intersect_key($texts, array_flip($types));
+  } else {
+    $filtered_types = $texts;
+  }
+  $result = array();
+  // set a new array with the values we also want to expose via JSON or Drupal.settings
+  // we do *not* want to expose the variable values as a whole
+  foreach ($filtered_types as $type => $value) {
+    $result[$type] = $value['text'];
+  }
+  return $result;
+}
+
+/**
+ * helper function: compile a list of recent supporters from the DB result parameter
+ */
+function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $has_text = FALSE) {
+  $texts = _campaignion_recent_supporters_get_action_texts();
   $supporters = array();
   foreach ($result as $item) {
     $supporter = array();
@@ -454,7 +478,6 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
     $countryval              = $addressfield . '_country';
     $supporter['country']    = empty($item->$countryval) ? $item->country : $item->$countryval;
     if ($has_text) {
-      $supporter['text']         = $texts[$item->type]['text'];
       $supporter['action_title'] = $item->title;
       $supporter['action_type']  = $item->type;
     }
