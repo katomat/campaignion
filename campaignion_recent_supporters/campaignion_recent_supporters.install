@@ -16,6 +16,22 @@ function campaignion_recent_supporters_enable() {
 }
 
 /**
+ * change variable name to campaignion_recent_supporters_name_display_default
+ */
+function campaignion_recent_supporters_update_2() {
+  // the default was to show the full name, this has now changed to show initials
+  // if the variable would evaluate to not '1' ('1' being the default if the
+  // variable is not set) then the last_name would be stripped to initials.
+  // so: if the old variable was not set or set to '1' the full name display was
+  // configured; the new default is wanted otherwise
+  $old_value = variable_get('recent_supporters_show_full_name');
+  if ($old_value === NULL || $old_value == '1') {
+    variable_set('campaignion_recent_supporters_name_display_default', CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FULL);
+  }
+  variable_del('recent_supporters_show_full_name');
+}
+
+/**
  * migrate field_show_recent_supporters -> recent_supporters
  */
 function campaignion_recent_supporters_update_1() {

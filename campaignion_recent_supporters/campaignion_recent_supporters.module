@@ -1,6 +1,19 @@
 <?php
 
 define ('CAMPAIGNION_RECENT_SUPPORTERS_NODE_URL_PART', 'recent-supporters');
+define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT', 0);
+define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FULL', 1);
+define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL', 2);
+define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FIRST_ONLY', 3);
+
+function _campaignion_recent_supporters_name_display_options() {
+  return array(
+    CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT => t('Default'),
+    CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FULL => t('Full name'),
+    CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL => t('First name and initial'),
+    CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FIRST_ONLY => t('First name only'),
+  );
+}
 
 /**
  * Implements hook_menu();
@@ -204,7 +217,8 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     $country = isset($field['options']['country_toggle']) ? $field['options']['country_toggle'] : 0;
 
     $block['subject'] = t('Recent supporters');
-    $supporters = _campaignion_recent_supporters_get_supporters_one_action($node->nid);
+    $name_display = isset($field['options']['name_display']) ? $field['options']['name_display'] : CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT;
+    $supporters = _campaignion_recent_supporters_get_supporters_one_action($node->nid, $name_display);
     $block['content'] = theme('recent_supporters', array(
       'supporters' => $supporters,
       'show_country' => ($country == '1') ? TRUE : FALSE,
@@ -416,7 +430,7 @@ function _campaignion_recent_supporters_strip_callback($value) {
 /**
  * helper function: query the activities for a specific nid
  */
-function _campaignion_recent_supporters_get_supporters_one_action($nid, $limit = 10) {
+function _campaignion_recent_supporters_get_supporters_one_action($nid, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, $limit = 10) {
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   $sql = <<<SQL
 SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid, n.nid
@@ -431,7 +445,7 @@ ORDER BY ca.created DESC
 SQL;
   $result = db_query_range($sql, 0, $limit - 1, array(':nid' => $nid));
 
-  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield);
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display);
 }
 
 /**
@@ -457,7 +471,7 @@ SQL;
     array(':types' => $types)
   );
 
-  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, TRUE);
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, TRUE);
 }
 
 /**
@@ -487,28 +501,51 @@ function _campaignion_recent_supporters_get_action_texts($types = array()) {
 /**
  * helper function: compile a list of recent supporters from the DB result parameter
  */
-function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $has_text = FALSE) {
+function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, $has_text = FALSE) {
   $texts = _campaignion_recent_supporters_get_action_texts();
   $supporters = array();
+
+  // resolve "default" name display
+  if ((int)$name_display === CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT) {
+    $name_display_default = variable_get('campaignion_recent_supporters_name_display_default', CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL);
+    // if $name_display_default is still CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT
+    // (e.g. it was explicitly set in the variable) we override it manually, as
+    // 'default' would make no sense here any more
+    if ($name_display_default === CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT) {
+      $name_display_default = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL;
+    }
+
+    $name_display = $name_display_default;
+  }
+
   foreach ($result as $item) {
     $supporter = array();
     $supporter['first_name'] = $item->first_name;
     $supporter['last_name']  = $item->last_name;
-    // TODO no variable, use drupal field recent_supporters instead
-    $show_full_name = variable_get('recent_supporters_show_full_name', '1');
-    if ($show_full_name == '1') {
-      $strip_lastname = FALSE;
-    } else {
-      $strip_lastname = TRUE;
+
+    // no CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT any more in $name_display
+    switch ($name_display) {
+      case CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FIRST_ONLY:
+        // set last_name to empty string
+        $supporter['last_name'] = "";
+        break;
+      case CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL:
+        // substitute last_name with initial
+        // convert every component of last_name to it's first letter
+        // also last names with van, von, de, ... and those consisting
+        // of two words
+        // @TODO with hyphens Last-Name
+        if (!empty($supporter['last_name'])) {
+          $ln_array = preg_split("/ +/", $supporter['last_name']);
+          $supporter['last_name'] = implode(' ', array_map('_campaignion_recent_supporters_strip_callback', $ln_array));
+        }
+        break;
+      case CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FULL:
+      default:
+        // nothing to do (full name loaded already
+        break;
     }
-    // convert every component of last_name to it's first letter
-    // also last names with van, von, de, ... and those consisting
-    // of two words
-    // TODO with hyphens Last-Name
-    if ($strip_lastname && !empty($supporter['last_name'])) {
-      $ln_array = preg_split("/ +/", $supporter['last_name']);
-      $supporter['last_name'] = implode(' ', array_map('_campaignion_recent_supporters_strip_callback', $ln_array));
-    }
+
     $supporter['timestamp']  = $item->timestamp;
     $supporter['rfc8601']    = date('c', $item->timestamp);
     $countryval              = $addressfield . '_country';
@@ -522,7 +559,7 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
     }
     $supporters[] = $supporter;
   }
-  
+
   return $supporters;
 }
 
@@ -541,11 +578,11 @@ function campaignion_recent_supporters_field_widget_form(&$form, &$form_state, $
       'visible_count' => 6,
       'cycle_toggle' => 0,
       'country_toggle' => 1,
+      'name_display' => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     ),
   );
 
   $item = drupal_array_merge_deep($defaults, $item);
-
 
   $element['toggle'] = array(
     '#title' => t('Display a recent supporters block.'),
@@ -561,6 +598,14 @@ function campaignion_recent_supporters_field_widget_form(&$form, &$form_state, $
         '#edit-'.strtr($field['field_name'], '_', '-').'-'.$langcode.'-'.$delta.'-toggle' => array('checked' => TRUE),
       ),
     ),
+  );
+  $element['options']['name_display'] = array(
+    '#title' => t('Supporter name display'),
+    '#description' => t('Configure the information displayed about the supporters of this action.'),
+    '#type' => 'select',
+    '#options' => _campaignion_recent_supporters_name_display_options(),
+    '#attributes' => array(),
+    '#default_value' => $item['options']['name_display'],
   );
   $element['options']['visible_count'] = array(
     '#title' => t('Number of max. visible supporters.'),
