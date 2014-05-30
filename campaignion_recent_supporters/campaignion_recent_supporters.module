@@ -250,7 +250,9 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
 }
 
 function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
-  $saved_settings = variable_get('recent_supporters_all_actions_settings', array());
+  global $language;
+
+  $saved_settings = i18n_variable_get('recent_supporters_all_actions_settings', $language->language, array());
   $defaults = array(
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     'visible_count'  => 6,
@@ -481,9 +483,11 @@ SQL;
  * returns only the texts for the types in the parameter, or all if the parameter is an empty array
  */
 function _campaignion_recent_supporters_get_action_texts($types = array()) {
+  global $language;
   static $texts;
+
   if (!isset($texts)) {
-    $settings = variable_get('recent_supporters_all_actions_settings', array());
+    $settings = i18n_variable_get('recent_supporters_all_actions_settings', $language->language, array());
     $texts = $settings['types'];
   }
   if (!empty($types)) {
