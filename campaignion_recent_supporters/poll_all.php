@@ -8,6 +8,15 @@
  */
 
 function campaignion_recent_supporters_bootstrap_inc() {
+  # set base_url explicitly as SCRIPT_NAME would lead to
+  # a 'wrong' base_url for the site
+  global $base_url;
+  $is_https = isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on';
+  $http_protocol = $is_https ? 'https' : 'http';
+  $base_root = $http_protocol . '://' . $_SERVER['HTTP_HOST'];
+  # base_url gets stripped to it's correct location below
+  $base_url = dirname($base_root . $_SERVER['SCRIPT_NAME']);
+
   $dir = dirname($_SERVER['DOCUMENT_ROOT'] . $_SERVER['SCRIPT_NAME']);
   while ($dir != '/') {
     $bootstrap = $dir . '/includes/bootstrap.inc';
@@ -16,6 +25,7 @@ function campaignion_recent_supporters_bootstrap_inc() {
       return $bootstrap;
     }
     $dir = dirname($dir);
+    $base_url = dirname($base_url);
   }
 }
 

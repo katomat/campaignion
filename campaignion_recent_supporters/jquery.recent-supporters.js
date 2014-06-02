@@ -227,6 +227,9 @@
           "!supporter_name": nameHtml,
           "!action_title": supporter.action_title
         }
+        if (supporter.action_url !== 'undefined') {
+          tokens["!action_title"] = '<a href="'+supporter.action_url+'" title="'+supporter.action_title+'">'+supporter.action_title+'</a>';
+        }
         if (settings.texts[supporter.action_type] !== 'undefined' && settings.texts[supporter.action_type].length > 0) {
           text = replaceTokensInText(settings.texts[supporter.action_type], tokens);
         }
