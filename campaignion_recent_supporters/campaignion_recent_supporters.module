@@ -192,9 +192,15 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     return NULL;
   }
 
-  /* thank_you_page integration:
-     Try to get the NID of the referring action page from the "share" get
-     parameter and get the recent supporters from this action page*/
+  // read field settings from the site we are ON
+  // and not any related action site (in case we are on a thank_you_page
+  // therefore: load the field prior to reloading the node
+  $fields = campaignion_recent_supporters_field_instances('node', $node, 'recent_supporters');
+  // we use the first field only
+  $field = array_shift($fields);
+  $show = isset($field['toggle']) ? $field['toggle'] : 0;
+
+  /* thank_you_page integration */
   if (   $node->type == "thank_you_page"
       && isset( $_GET['share']) == TRUE
       && preg_match('@node/(\d+)@', $_GET['share'], $get_nid) == 1) {
@@ -205,10 +211,6 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     return NULL;
   }
 
-  $fields = campaignion_recent_supporters_field_instances('node', $node, 'recent_supporters');
-  // we use the first field only
-  $field = array_shift($fields);
-  $show = isset($field['toggle']) ? $field['toggle'] : 0;
   if ($show) {
     // save values for polling
     $polling_url = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'campaignion_recent_supporters') . '/poll.php?nid=' . $node->nid;
@@ -590,18 +592,22 @@ function campaignion_recent_supporters_field_widget_form(&$form, &$form_state, $
 
   $item = drupal_array_merge_deep($defaults, $item);
 
+  $toggle_id = drupal_html_id('recent-supporters-toggle');
   $element['toggle'] = array(
     '#title' => t('Display a recent supporters block.'),
     '#description' => t('Display a recent supporters block.'),
     '#type' => 'checkbox',
     '#default_value' => $item['toggle'],
+    '#id' => $toggle_id,
   );
   $element['options'] = array(
     '#type' => 'fieldset',
     '#title' => t('Recent supporters adavanced settings.'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
     '#states' => array(
       'visible' => array(
-        '#edit-'.strtr($field['field_name'], '_', '-').'-'.$langcode.'-'.$delta.'-toggle' => array('checked' => TRUE),
+        "#$toggle_id" => array('checked' => TRUE),
       ),
     ),
   );

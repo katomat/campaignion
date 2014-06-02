@@ -115,10 +115,6 @@ class ThankyouStep extends WizardStep {
     $node_form['options']['status']['#default_value'] = 0;
     $node_form['options']['promote']['#default_value'] = 0;
 
-    foreach (array('actions', 'options', 'revision_information', 'author', 'redirect', 'additional_settings', 'field_flexible', 'field_intro') as $key) {
-      $node_form[$key]['#access'] = FALSE;
-    }
-
     // order the form fields
     $node_form['field_main_image']['#attributes']['class'][] = 'sidebar-narrow-right';
     $node_form['#tree'] = TRUE;

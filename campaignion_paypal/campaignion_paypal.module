@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * Implements hook_payment_method_controller_info_alter().
+ */
+function campaignion_paypal_payment_method_controller_info_alter(&$info) {
+  if (isset($info['PayPalPaymentPPSPaymentMethodController'])) {
+    $info['PayPalPaymentPPSPaymentMethodController'] = '\Drupal\campaignion_paypal\PPSPaymentController';
+  }
+  if (isset($info['PayPalPaymentECPaymentMethodController'])) {
+    $info['PayPalPaymentECPaymentMethodController'] = '\Drupal\campaignion_paypal\ECPaymentController';
+  }
+}

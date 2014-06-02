@@ -1,0 +1,5 @@
+name = Campaignion paypal
+description = Integrate paypal with campaignion and especially with webform_paymethod_select.
+core = 7.x
+
+dependencies[] = psr0
