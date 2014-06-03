@@ -883,14 +883,3 @@ function _campaignion_recent_supporters_translation_from_item($item, $lang) {
   }
   return $titem;
 }
-
-function _campaignion_recent_supporters_get_saved_settings($variable_name) {
-  global $language;
-  // use translated variable settings if i18n_variable is enabled
-  if (module_exists('i18n_variable')) {
-    $saved_settings = i18n_variable_get($variable_name, $language->language, array());
-  } else {
-    $saved_settings = variable_get($variable_name, array());
-  }
-  return $saved_settings;
-}
