@@ -225,10 +225,10 @@
       if (typeof supporter.action_type !== 'undefined' && supporter.action_type) {
         var tokens = {
           "!supporter_name": nameHtml,
-          "!action_title": supporter.action_title
+          "!action_title": '<span class="title">'+supporter.action_title+"</span>"
         }
         if (supporter.action_url !== 'undefined') {
-          tokens["!action_title"] = '<a href="'+supporter.action_url+'" title="'+supporter.action_title+'">'+supporter.action_title+'</a>';
+          tokens["!action_title"] = '<span class="title"><a href="'+supporter.action_url+'" title="'+supporter.action_title+'">'+supporter.action_title+'</a></span>';
         }
         if (settings.texts[supporter.action_type] !== 'undefined' && settings.texts[supporter.action_type].length > 0) {
           text = replaceTokensInText(settings.texts[supporter.action_type], tokens);

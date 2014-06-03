@@ -12,6 +12,15 @@ li.supporter {
 .supporter .name {
   font-weight: bold;
 }
+.supporter .title {
+  font-weight: bold;
+}
+.supporter .title a {
+  text-decoration: none;
+}
+.supporter .title a:hover {
+  text-decoration: underline;
+}
 .supporter .time {
   font-style: italic;
 }

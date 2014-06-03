@@ -387,14 +387,16 @@ function theme_recent_supporters($variables) {
       if (isset($supporter['action_type'])) {
         $first_name = $supporter['first_name'] . (!empty($supporter['first_name']) ? " " : "");
         $vars['!supporter_name'] = "<span class=\"name\">" . $first_name . "<span class=\"last_name\">" . $supporter['last_name'] . "</span></span>\n";
+        $vars['!action_title']   = "<span class=\"title\">";
         if (!empty($supporter['action_url'])) {
-          $vars['!action_title']   = '<a href="'.$supporter['action_url'].'" ';
+          $vars['!action_title']  .= '<a href="'.$supporter['action_url'].'" ';
           $vars['!action_title']  .= 'title="'.$supporter['action_title'].'">';
           $vars['!action_title']  .= $supporter['action_title'];
           $vars['!action_title']  .= '</a>';
         } else {
-          $vars['!action_title']   = $supporter['action_title'];
+          $vars['!action_title']  .= $supporter['action_title'];
         }
+        $vars['!action_title']  .= "</span>";
         $output .= format_string($texts[$supporter['action_type']], $vars);
       }
       else {
