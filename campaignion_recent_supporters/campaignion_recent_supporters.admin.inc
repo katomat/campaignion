@@ -3,27 +3,19 @@
  * @file
  */
 
-function _recent_supporters_get_enabled_languages() {
-  return db_query(
-    'SELECT language, name ' .
-    '  FROM {languages} ' .
-    '    WHERE enabled = 1 '
-  )->fetchAllKeyed();
-}
-
 /**
  * Menu/form callback: settings form.
  */
 function recent_supporters_settings_form($form, &$form_state) {
-  $saved_settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
   $defaults = array(
     'visible_count'  => 6,
     'cycle_toggle'   => 0,
     'country_toggle' => 1,
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
-    'types'          => array(),
   );
-  $saved_settings = $saved_settings + $defaults;
+  $saved_settings = variable_get('campaignion_recent_supporters_settings', $defaults);
+
+  $form['#tree'] = TRUE;
 
   $form['general_settings'] = array(
     '#title' => t('General settings for recent supporter block.'),
@@ -60,106 +52,50 @@ function recent_supporters_settings_form($form, &$form_state) {
     '#default_value' => $saved_settings['country_toggle'],
   );
 
-  $form['content_types'] = array(
-    '#title'       => t('Choose types of actions and text.'),
-    '#type'        => 'fieldset',
-  );
-
-  $available_types = array_intersect_key(node_type_get_types(), Drupal\campaignion\Action\TypeBase::types());
-
-  // option per language if enabled
-  if (module_exists('i18n_variable')) {
-    global $language;
-    $enabled_languages = _recent_supporters_get_enabled_languages();
-
-    $type_lang_id = drupal_html_id('recent-supporters-type-lang');
-    $form['content_types']['lang_select'] = array(
-      '#type'          => 'select',
-      '#title'         => t('Select the language for which you want to set the recent supporter texts'),
-      '#options'       => $enabled_languages,
-      '#default_value' => $language->language,
-      '#attributes'    => array('id' => $type_lang_id),
-    );
-    foreach ($enabled_languages as $lang_code => $lang_name) {
-      $form['content_types'][$lang_code] = array(
-        '#type'   => 'container',
-        '#states' => array('visible' => array('#' . $type_lang_id => array('value' => $lang_code))),
-      );
-      $saved_settings = i18n_variable_get('recent_supporters_all_actions_settings', $lang_code, array());
-      foreach ($available_types as $type => $type_config) {
-        $type_id = drupal_html_id('recent-supporters-type-' . str_replace('_', '-', $type));
-        $form['content_types'][$lang_code][$lang_code . '_' . $type] = array(
-          '#title'         => $type_config->name,
-          '#type'          => 'checkbox',
-          '#attributes'    => array('id' => $type_id),
-          '#default_value' => empty($saved_settings['types'][$type]['enabled']) ? 0 : 1,
-        );
-        $form['content_types'][$lang_code][$lang_code . '_' . $type . '_text'] = array(
-          '#title'         => t('Text to display for %type actions.', array('%type' => $type_config->name)),
-          '#type'          => 'textfield',
-          '#default_value' => isset($saved_settings['types'][$type]['text']) ? $saved_settings['types'][$type]['text']: '',
-          '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
-        );
-      }
-    }
-  } else {
-    $saved_settings = variable_get('recent_supporters_all_actions_settings', array());
-    foreach ($available_types as $type => $type_config) {
-      $type_id = drupal_html_id('recent-supporters-type-' . str_replace('_', '-', $type));
-      $form['content_types'][$type] = array(
-        '#title'         => $type_config->name,
-        '#type'          => 'checkbox',
-        '#attributes'    => array('id' => $type_id),
-        '#default_value' => empty($saved_settings['types'][$type]['enabled']) ? 0 : 1,
-      );
-      $form['content_types'][$type . '_text'] = array(
-        '#title'         => t('Text to display for %type actions.', array('%type' => $type_config->name)),
-        '#type'          => 'textfield',
-        '#default_value' => isset($saved_settings['types'][$type]['text']) ? $saved_settings['types'][$type]['text']: '',
-        '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
-      );
-    }
+  global $language;
+  $keys      = variable_realm_current_keys();
+  $lang_code = $language->language;
+  if (isset($keys['language'])) {
+    $lang_code = $keys['language'];
   }
-
-  $form['actions'] = array(
-    '#type'   => 'actions',
-    '#weight' => 3,
+  $type_settings = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults($lang_code));
+  $form['campaignion_recent_supporters_settings_types'] = array(
+    '#title' => t('Choose types of actions and texts.'),
+    '#type'  => 'fieldset',
   );
-  $form['actions']['submit'] = array(
-    '#type'  => 'submit',
-    '#value' => t('Save settings'),
-  );
+  $available_types = array_intersect_key(node_type_get_types(), Drupal\campaignion\Action\TypeBase::types());
+  foreach ($available_types as $type => $type_config) {
+    $type_id = drupal_html_id('campaignion-recent-supporters-type-' . str_replace('_', '-', $type));
+    $form['campaignion_recent_supporters_settings_types'][$type]['enabled'] = array(
+      '#title'         => $type_config->name,
+      '#type'          => 'checkbox',
+      '#attributes'    => array('id' => $type_id),
+      '#default_value' => $type_settings[$type]['enabled'],
+    );
+    $form['campaignion_recent_supporters_settings_types'][$type]['text'] = array(
+      '#title'         => t('Text to display for %type actions.', array('%type' => $type_config->name)),
+      '#type'          => 'textfield',
+      '#default_value' => $type_settings[$type]['text'],
+      '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
+    );
+  }
+  $form['#realm_variables']['language']['campaignion_recent_supporters_settings_types'] = 'campaignion_recent_supporters_settings_types';
 
+  //copied from variable_realm.variable.inc
+  form_load_include($form_state, 'form.inc', 'variable_realm');
+  _variable_realm_variable_settings_form_switcher($form);
+
+  $form = system_settings_form($form);
+  $form['#submit'][] = 'campaignion_recent_supporters_settings_form_submit';
   return $form;
 }
 
-function recent_supporters_settings_form_submit($form, &$form_state) {
-
+function campaignion_recent_supporters_settings_form_submit($form, &$form_state) {
   $result = array(
-    'name_display'   => $form_state['values']['name_display'],
-    'visible_count'  => $form_state['values']['visible_count'],
-    'cycle_toggle'   => $form_state['values']['cycle_toggle'],
-    'country_toggle' => $form_state['values']['country_toggle'],
-    'types'          => array(),
+    'visible_count'  => $form_state['values']['general_settings']['visible_count'],
+    'cycle_toggle'   => $form_state['values']['general_settings']['cycle_toggle'],
+    'country_toggle' => $form_state['values']['general_settings']['country_toggle'],
+    'name_display'   => $form_state['values']['general_settings']['name_display'],
   );
-
-  // option per language if enabled
-  if (module_exists('i18n_variable')) {
-    $enabled_languages = _recent_supporters_get_enabled_languages();
-    foreach ($enabled_languages as $lang_code => $lang_name) {
-      foreach (array_keys(Drupal\campaignion\Action\TypeBase::types()) as $type) {
-        $result['types'][$type]['enabled'] = $form_state['values'][$lang_code . '_' . $type];
-        $result['types'][$type]['text']    = $form_state['values'][$lang_code . '_' . $type . '_text'];
-      }
-      i18n_variable_set('recent_supporters_all_actions_settings', $result, $lang_code);
-    }
-  } else {
-    foreach (array_keys(Drupal\campaignion\Action\TypeBase::types()) as $type) {
-      $result['types'][$type]['enabled'] = $form_state['values'][$type];
-      $result['types'][$type]['text']    = $form_state['values'][$type . '_text'];
-    }
-    variable_set('recent_supporters_all_actions_settings', $result);
-  }
-
-  drupal_set_message(t('Saved recent supporter settings.'));
+  variable_set('campaignion_recent_supporters_settings', $result);
 }

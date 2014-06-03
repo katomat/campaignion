@@ -1,4 +1,13 @@
 <?php
+/**
+ * @file
+ */
+
+function campaignion_recent_supporters_install() {
+  $lang_realm_vars   = variable_get('variable_realm_list_language', array());
+  $lang_realm_vars[] = 'campaignion_recent_supporters_settings_types';
+  variable_set('variable_realm_list_language', $lang_realm_vars);
+}
 
 function campaignion_recent_supporters_enable() {
   // create field type if not already defined

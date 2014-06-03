@@ -1,6 +1,6 @@
 <?php
 
-define ('CAMPAIGNION_RECENT_SUPPORTERS_NODE_URL_PART', 'recent-supporters');
+define ('CAMPAIGNION_RECENT_SUPPORTENODE_URL_PART', 'recent-supporters');
 define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT', 0);
 define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_FULL', 1);
 define ('CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_INITIAL', 2);
@@ -187,6 +187,10 @@ function campaignion_recent_supporters_block_view($delta = '') {
   return $block;
 }
 
+/**
+ * creates content for a recent supporters block for 1 specific action;
+ * called from hook_block_view();
+ */
 function _campaignion_recent_supporters_block_recent_supporters(&$block) {
   if (($node = menu_get_object()) == FALSE || isset($node->nid) == FALSE) {
     return NULL;
@@ -251,19 +255,56 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
   }
 }
 
+/**
+ * Helper function to get all installed action content types as
+ * well as their default recent supporters texts
+ */
+function _campaignion_recent_supporters_get_types_defaults($lang_code = NULL) {
+  global $language;
+  static $action_type_info;
+  if (!isset($action_type_info)) {
+    if (function_exists('module_invoke_all')) {
+      $action_type_info = \Drupal\campaignion\Action\TypeBase::types();
+    }
+    else {
+      include_once DRUPAL_ROOT . '/includes/module.inc';
+      include_once DRUPAL_ROOT . '/includes/cache.inc';
+      $action_type_info = module_invoke_all('campaignion_action_info');
+    }
+  }
+  $saved_lang = $language;
+  if (isset($lang_code)) {
+    $language_list = language_list();
+    $language      = $language_list[$lang_code];
+  }
+  $types = array();
+  foreach ($action_type_info as $type => $info) {
+    $types[$type] = array(
+      'enabled' => 1,
+      'text'    => $info['parameters']['recent_supporters']['default_text'],
+    );
+  }
+  $language = $saved_lang;
+
+  return $types;
+}
+
+/**
+ * creates content for a recent supporters block for all configured
+ * action pages with configured texts;
+ * called from hook_block_view();
+ */
 function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
-  $saved_settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
   $defaults = array(
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     'visible_count'  => 6,
     'cycle_toggle'   => 0,
     'country_toggle' => 1,
-    'types'          => array(),
   );
-  $saved_settings = $saved_settings + $defaults;
-
-  $types            = array();
-  foreach ($saved_settings['types'] as $type => $setting) {
+  $saved_settings = variable_get('campaignion_recent_supporters_settings', $defaults);
+  $types_settings = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults());
+  $types          = array();
+  foreach ($types_settings as $type => $setting) {
     if ($setting['enabled']) {
       $types[$type] = $type;
     }
@@ -275,7 +316,7 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
   $block['content'] = theme('recent_supporters', array(
     'supporters'   => $supporters,
     'show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
-    'all_actions' => TRUE,
+    'all_actions'  => TRUE,
   ));
 
   // set configured texts in generic recentSupporter setting
@@ -505,8 +546,7 @@ function _campaignion_recent_supporters_get_action_texts($types = array()) {
   static $texts;
 
   if (!isset($texts)) {
-    $settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
-    $texts = $settings['types'];
+    $texts = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults());
   }
   if (!empty($types)) {
     $filtered_types = array_intersect_key($texts, array_flip($types));
