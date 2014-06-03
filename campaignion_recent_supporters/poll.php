@@ -26,14 +26,6 @@ if ($bootstrap = campaignion_recent_supporters_bootstrap_inc()) {
 _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
-/**
- * as our bootstrap does not load this function definition (but we do need it
- * in the .module file) we
- */
-function module_exists($name) {
-  return FALSE;
-}
-
 require_once DRUPAL_ROOT . '/includes/common.inc';
 require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
 
