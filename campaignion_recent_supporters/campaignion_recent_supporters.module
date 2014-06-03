@@ -252,9 +252,7 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
 }
 
 function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
-  global $language;
-
-  $saved_settings = i18n_variable_get('recent_supporters_all_actions_settings', $language->language, array());
+  $saved_settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
   $defaults = array(
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     'visible_count'  => 6,
@@ -494,11 +492,10 @@ SQL;
  * returns only the texts for the types in the parameter, or all if the parameter is an empty array
  */
 function _campaignion_recent_supporters_get_action_texts($types = array()) {
-  global $language;
   static $texts;
 
   if (!isset($texts)) {
-    $settings = i18n_variable_get('recent_supporters_all_actions_settings', $language->language, array());
+    $settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
     $texts = $settings['types'];
   }
   if (!empty($types)) {
@@ -835,4 +832,15 @@ function _campaignion_recent_supporters_translation_from_item($item, $lang) {
     }
   }
   return $titem;
+}
+
+function _campaignion_recent_supporters_get_saved_settings($variable_name) {
+  global $language;
+  // use translated variable settings if i18n_variable is enabled
+  if (module_exists('i18n_variable')) {
+    $saved_settings = i18n_variable_get($variable_name, $language->language, array());
+  } else {
+    $saved_settings = variable_get($variable_name, array());
+  }
+  return $saved_settings;
 }

@@ -9,6 +9,7 @@ dependencies[] = webform_tracking
 dependencies[] = redhen_contact
 dependencies[] = addressfield
 dependencies[] = libraries
+;dependencies[] = i18n_variable
 
 stylesheets[all][] = recent-supporters.css
 stylesheets[all][] = flags.css

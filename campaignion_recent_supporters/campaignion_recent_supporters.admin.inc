@@ -15,10 +15,7 @@ function _recent_supporters_get_enabled_languages() {
  * Menu/form callback: settings form.
  */
 function recent_supporters_settings_form($form, &$form_state) {
-  global $language;
-  $enabled_languages = _recent_supporters_get_enabled_languages();
-
-  $saved_settings  = i18n_variable_get('recent_supporters_all_actions_settings', $language->language, array());
+  $saved_settings = _campaignion_recent_supporters_get_saved_settings('recent_supporters_all_actions_settings');
   $defaults = array(
     'visible_count'  => 6,
     'cycle_toggle'   => 0,
@@ -67,30 +64,55 @@ function recent_supporters_settings_form($form, &$form_state) {
     '#title'       => t('Choose types of actions and text.'),
     '#type'        => 'fieldset',
   );
-  $type_lang_id = drupal_html_id('recent-supporters-type-lang');
-  $form['content_types']['lang_select'] = array(
-    '#type'          => 'select',
-    '#title'         => t('Select the language for which you want to set the recent supporter texts'),
-    '#options'       => $enabled_languages,
-    '#default_value' => $language->language,
-    '#attributes'    => array('id' => $type_lang_id),
-  );
+
   $available_types = array_intersect_key(node_type_get_types(), Drupal\campaignion\Action\TypeBase::types());
-  foreach ($enabled_languages as $lang_code => $lang_name) {
-    $form['content_types'][$lang_code] = array(
-      '#type'   => 'container',
-      '#states' => array('visible' => array('#' . $type_lang_id => array('value' => $lang_code))),
+
+  // option per language if enabled
+  if (module_exists('i18n_variable')) {
+    global $language;
+    $enabled_languages = _recent_supporters_get_enabled_languages();
+
+    $type_lang_id = drupal_html_id('recent-supporters-type-lang');
+    $form['content_types']['lang_select'] = array(
+      '#type'          => 'select',
+      '#title'         => t('Select the language for which you want to set the recent supporter texts'),
+      '#options'       => $enabled_languages,
+      '#default_value' => $language->language,
+      '#attributes'    => array('id' => $type_lang_id),
     );
-    $saved_settings = i18n_variable_get('recent_supporters_all_actions_settings', $lang_code, array());
+    foreach ($enabled_languages as $lang_code => $lang_name) {
+      $form['content_types'][$lang_code] = array(
+        '#type'   => 'container',
+        '#states' => array('visible' => array('#' . $type_lang_id => array('value' => $lang_code))),
+      );
+      $saved_settings = i18n_variable_get('recent_supporters_all_actions_settings', $lang_code, array());
+      foreach ($available_types as $type => $type_config) {
+        $type_id = drupal_html_id('recent-supporters-type-' . str_replace('_', '-', $type));
+        $form['content_types'][$lang_code][$lang_code . '_' . $type] = array(
+          '#title'         => $type_config->name,
+          '#type'          => 'checkbox',
+          '#attributes'    => array('id' => $type_id),
+          '#default_value' => empty($saved_settings['types'][$type]['enabled']) ? 0 : 1,
+        );
+        $form['content_types'][$lang_code][$lang_code . '_' . $type . '_text'] = array(
+          '#title'         => t('Text to display for %type actions.', array('%type' => $type_config->name)),
+          '#type'          => 'textfield',
+          '#default_value' => isset($saved_settings['types'][$type]['text']) ? $saved_settings['types'][$type]['text']: '',
+          '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
+        );
+      }
+    }
+  } else {
+    $saved_settings = variable_get('recent_supporters_all_actions_settings', array());
     foreach ($available_types as $type => $type_config) {
       $type_id = drupal_html_id('recent-supporters-type-' . str_replace('_', '-', $type));
-      $form['content_types'][$lang_code][$lang_code . '_' . $type] = array(
+      $form['content_types'][$type] = array(
         '#title'         => $type_config->name,
         '#type'          => 'checkbox',
         '#attributes'    => array('id' => $type_id),
         '#default_value' => empty($saved_settings['types'][$type]['enabled']) ? 0 : 1,
       );
-      $form['content_types'][$lang_code][$lang_code . '_' . $type . '_text'] = array(
+      $form['content_types'][$type . '_text'] = array(
         '#title'         => t('Text to display for %type actions.', array('%type' => $type_config->name)),
         '#type'          => 'textfield',
         '#default_value' => isset($saved_settings['types'][$type]['text']) ? $saved_settings['types'][$type]['text']: '',
@@ -112,7 +134,6 @@ function recent_supporters_settings_form($form, &$form_state) {
 }
 
 function recent_supporters_settings_form_submit($form, &$form_state) {
-  $enabled_languages = _recent_supporters_get_enabled_languages();
 
   $result = array(
     'name_display'   => $form_state['values']['name_display'],
@@ -121,12 +142,23 @@ function recent_supporters_settings_form_submit($form, &$form_state) {
     'country_toggle' => $form_state['values']['country_toggle'],
     'types'          => array(),
   );
-  foreach ($enabled_languages as $lang_code => $lang_name) {
-    foreach (array_keys(Drupal\campaignion\Action\TypeBase::types()) as $type) {
-      $result['types'][$type]['enabled'] = $form_state['values'][$lang_code . '_' . $type];
-      $result['types'][$type]['text']    = $form_state['values'][$lang_code . '_' . $type . '_text'];
+
+  // option per language if enabled
+  if (module_exists('i18n_variable')) {
+    $enabled_languages = _recent_supporters_get_enabled_languages();
+    foreach ($enabled_languages as $lang_code => $lang_name) {
+      foreach (array_keys(Drupal\campaignion\Action\TypeBase::types()) as $type) {
+        $result['types'][$type]['enabled'] = $form_state['values'][$lang_code . '_' . $type];
+        $result['types'][$type]['text']    = $form_state['values'][$lang_code . '_' . $type . '_text'];
+      }
+      i18n_variable_set('recent_supporters_all_actions_settings', $result, $lang_code);
     }
-    i18n_variable_set('recent_supporters_all_actions_settings', $result, $lang_code);
+  } else {
+    foreach (array_keys(Drupal\campaignion\Action\TypeBase::types()) as $type) {
+      $result['types'][$type]['enabled'] = $form_state['values'][$type];
+      $result['types'][$type]['text']    = $form_state['values'][$type . '_text'];
+    }
+    variable_set('recent_supporters_all_actions_settings', $result);
   }
 
   drupal_set_message(t('Saved recent supporter settings.'));
