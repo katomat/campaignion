@@ -36,11 +36,21 @@ if ($bootstrap = campaignion_recent_supporters_bootstrap_inc()) {
 _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
+require_once DRUPAL_ROOT . '/includes/common.inc';
+require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
+
+/**
+ * as our bootstrap does not load this function definition (but we do need it
+ * in the .module file) we
+ */
+function module_exists($name) {
+  return FALSE;
+}
+
 if (!isset($_GET['types'])) {
+  campaignion_recent_supporters_send_empty_json();
   exit;
 }
 
-require_once DRUPAL_ROOT . '/includes/common.inc';
-require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
 
 campaignion_recent_supporters_all_action_json($_GET['types']);

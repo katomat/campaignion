@@ -26,11 +26,20 @@ if ($bootstrap = campaignion_recent_supporters_bootstrap_inc()) {
 _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
-if (!isset($_GET['nid'])) {
-  exit;
+/**
+ * as our bootstrap does not load this function definition (but we do need it
+ * in the .module file) we
+ */
+function module_exists($name) {
+  return FALSE;
 }
 
 require_once DRUPAL_ROOT . '/includes/common.inc';
 require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
+
+if (!isset($_GET['nid'])) {
+  campaignion_recent_supporters_send_empty_json();
+  exit;
+}
 
 campaignion_recent_supporters_json((int) $_GET['nid']);

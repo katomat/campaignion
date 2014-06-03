@@ -424,7 +424,7 @@ function campaignion_recent_supporters_json($nid) {
 }
 
 /**
- * poll_all.php callback function for getting recent supporter of all action pages
+ * polling callback function for getting recent supporter of all action pages
  */
 function campaignion_recent_supporters_all_action_json($types) {
   $types      = explode(',', $types);
@@ -433,6 +433,16 @@ function campaignion_recent_supporters_all_action_json($types) {
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_json_output(array('supporters' => $supporters));
 }
+
+/**
+ * poll_all.php callback function for return an empty array (in case of error).
+ */
+function campaignion_recent_supporters_send_empty_json() {
+  drupal_add_http_header("Access-Control-Allow-Origin", "*");
+  drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
+  drupal_json_output(array('supporters' => array()));
+}
+
 /**
  * callback funtion
  */
