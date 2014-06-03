@@ -51,12 +51,14 @@ function recent_supporters_settings_form($form, &$form_state) {
     '#type'          => 'checkbox',
     '#default_value' => $saved_settings['country_toggle'],
   );
-
-  global $language;
-  $keys      = variable_realm_current_keys();
-  $lang_code = $language->language;
-  if (isset($keys['language'])) {
-    $lang_code = $keys['language'];
+  $lang_code = NULL;
+  if (module_exists('variable_realm') && module_exists('i18n_variable')) {
+    global $language;
+    $keys      = variable_realm_current_keys();
+    $lang_code = $language->language;
+    if (isset($keys['language'])) {
+      $lang_code = $keys['language'];
+    }
   }
   $type_settings = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults($lang_code));
   $form['campaignion_recent_supporters_settings_types'] = array(
@@ -79,12 +81,12 @@ function recent_supporters_settings_form($form, &$form_state) {
       '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
     );
   }
-  $form['#realm_variables']['language']['campaignion_recent_supporters_settings_types'] = 'campaignion_recent_supporters_settings_types';
-
-  //copied from variable_realm.variable.inc
-  form_load_include($form_state, 'form.inc', 'variable_realm');
-  _variable_realm_variable_settings_form_switcher($form);
-
+  if (module_exists('variable_realm') && module_exists('i18n_variable')) {
+    $form['#realm_variables']['language']['campaignion_recent_supporters_settings_types'] = 'campaignion_recent_supporters_settings_types';
+    //copied from variable_realm.variable.inc
+    form_load_include($form_state, 'form.inc', 'variable_realm');
+    _variable_realm_variable_settings_form_switcher($form);
+  }
   $form = system_settings_form($form);
   $form['#submit'][] = 'campaignion_recent_supporters_settings_form_submit';
   return $form;

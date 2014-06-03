@@ -3,12 +3,30 @@
  * @file
  */
 
+/**
+ * implements hook_install().
+ */
 function campaignion_recent_supporters_install() {
-  $lang_realm_vars   = variable_get('variable_realm_list_language', array());
-  $lang_realm_vars[] = 'campaignion_recent_supporters_settings_types';
-  variable_set('variable_realm_list_language', $lang_realm_vars);
+  if (module_exists('variable_realm')) {
+    $lang_realm_vars   = variable_get('variable_realm_list_language', array());
+    $lang_realm_vars[] = 'campaignion_recent_supporters_settings_types';
+    variable_set('variable_realm_list_language', $lang_realm_vars);
+  }
 }
 
+/**
+ * implements hook_modules_enabled().
+ */
+function hook_modules_enabled($modules) {
+  if (in_array('variable_realm', $modules)) {
+    $lang_realm_vars   = variable_get('variable_realm_list_language', array());
+    $lang_realm_vars[] = 'campaignion_recent_supporters_settings_types';
+    variable_set('variable_realm_list_language', $lang_realm_vars);
+  }
+}
+/**
+ * implements hook_enable().
+ */
 function campaignion_recent_supporters_enable() {
   // create field type if not already defined
   if (!field_read_field('recent_supporters')) {
