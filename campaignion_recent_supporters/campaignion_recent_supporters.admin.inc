@@ -81,6 +81,20 @@ function recent_supporters_settings_form($form, &$form_state) {
       '#states'        => array('visible' => array('#' . $type_id => array('checked' => TRUE))),
     );
   }
+  $token_legend = array(
+    'items' => array(
+      '!action_title - The page title of the action page',
+      '!supporter_name - Firstname and lastname of the supporter that just took action',
+    ),
+  );
+  $form['campaignion_recent_supporters_settings_types']['token_legend'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Available tokens:'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => TRUE,
+    '#children'    => '<div>' . theme('item_list', $token_legend) . '</div>',
+    '#attributes'  => array('class' => array('collapsible', 'collapsed')),
+  );
   if (module_exists('variable_realm') && module_exists('i18n_variable')) {
     $form['#realm_variables']['language']['campaignion_recent_supporters_settings_types'] = 'campaignion_recent_supporters_settings_types';
     //copied from variable_realm.variable.inc
