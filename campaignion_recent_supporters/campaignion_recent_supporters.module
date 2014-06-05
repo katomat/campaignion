@@ -473,7 +473,14 @@ function campaignion_recent_supporters_json($nid) {
  */
 function campaignion_recent_supporters_all_action_json($types, $lang = NULL) {
   $types      = explode(',', $types);
-  $name_display     = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT;
+  $defaults = array(
+    'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
+    'visible_count'  => 6,
+    'cycle_toggle'   => 0,
+    'country_toggle' => 1,
+  );
+  $saved_settings = variable_get('campaignion_recent_supporters_settings', $defaults);
+  $name_display     = $saved_settings['name_display'];
   $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $lang);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
