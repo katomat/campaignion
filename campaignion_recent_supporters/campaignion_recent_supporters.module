@@ -225,11 +225,13 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
     $block['subject'] = t('Recent supporters');
     $name_display = isset($field['options']['name_display']) ? $field['options']['name_display'] : CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT;
     $supporters = _campaignion_recent_supporters_get_supporters_one_action($node->nid, $name_display);
-    $block['content'] = theme('recent_supporters', array(
-      'supporters' => $supporters,
-      'show_country' => ($country == '1') ? TRUE : FALSE,
-      'all_actions' => FALSE,
-    ));
+    $block['content'] = array(
+      '#theme' => 'recent_supporters',
+      '#supporters' => $supporters,
+      '#show_country' => ($country == '1') ? TRUE : FALSE,
+      '#all_actions' => FALSE,
+      '#texts' => NULL,
+    );
 
     // set an unique id to use as key in Drupal.settings array
     $block_id = drupal_html_id('campaignion-recent-supporters');
@@ -295,6 +297,7 @@ function _campaignion_recent_supporters_get_types_defaults($lang_code = NULL) {
  * called from hook_block_view();
  */
 function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
+  global $language;
   $defaults = array(
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
     'visible_count'  => 6,
@@ -302,7 +305,7 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
     'country_toggle' => 1,
   );
   $saved_settings = variable_get('campaignion_recent_supporters_settings', $defaults);
-  $types_settings = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults());
+  $types_settings = variable_get('campaignion_recent_supporters_settings_types', _campaignion_recent_supporters_get_types_defaults($language->language));
   $types          = array();
   foreach ($types_settings as $type => $setting) {
     if ($setting['enabled']) {
@@ -313,14 +316,16 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
   $block['subject'] = t('Recent supporters');
   $name_display     = $saved_settings['name_display'];
   $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display);
-  $block['content'] = theme('recent_supporters', array(
-    'supporters'   => $supporters,
-    'show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
-    'all_actions'  => TRUE,
-  ));
+  $texts = _campaignion_recent_supporters_get_action_texts($types);
+  $block['content'] = array(
+    '#theme'        => 'recent_supporters',
+    '#supporters'   => $supporters,
+    '#show_country' => ($saved_settings['country_toggle'] == '1') ? TRUE : FALSE,
+    '#all_actions'  => TRUE,
+    '#texts'        => $texts,
+  );
 
   // set configured texts in generic recentSupporter setting
-  $texts = _campaignion_recent_supporters_get_action_texts($types);
   drupal_add_js(
     array(
       'recentSupporters' => array(
@@ -343,8 +348,8 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
         'pollingURL'      => $polling_url,
         'types'           => $types,
         'allActions'      => TRUE,
-      )
-    )
+      ),
+    ),
   )),'setting');
 
   if ($saved_settings['country_toggle']) {
@@ -384,7 +389,7 @@ function campaignion_recent_supporters_country_json($filename) {
  */
 function campaignion_recent_supporters_theme() {
   $theme['recent_supporters'] = array(
-    'variables' => array('supporters' => array(), 'show_country' => FALSE, 'all_actions' => FALSE),
+    'variables' => array('supporters' => array(), 'show_country' => FALSE, 'all_actions' => FALSE, 'texts' => array()),
   );
   return $theme;
 }
@@ -405,8 +410,7 @@ function theme_recent_supporters($variables) {
   }
   else {
     $all_actions = $variables['all_actions'] ? 'recent-supporters-all-actions' : 'recent-supporters-single-action';
-    $texts = _campaignion_recent_supporters_get_action_texts();
-
+    $texts = $variables['texts'];
     $output .= "<ul class=\"recent-supporters $all_actions\">\n";
     foreach($supporters as $supporter) {
       $action_type = "";
@@ -423,7 +427,7 @@ function theme_recent_supporters($variables) {
         $output .= $supporter['country'];
         $output .= "</span>\n";
       }
-      if (isset($supporter['action_type'])) {
+      if ($all_actions === 'recent-supporters-all-actions') {
         $first_name = $supporter['first_name'] . (!empty($supporter['first_name']) ? " " : "");
         $vars['!supporter_name'] = "<span class=\"name\">" . $first_name . "<span class=\"last_name\">" . $supporter['last_name'] . "</span></span>\n";
         $vars['!action_title']   = "<span class=\"title\">";
@@ -566,7 +570,6 @@ function _campaignion_recent_supporters_get_action_texts($types = array()) {
  * helper function: compile a list of recent supporters from the DB result parameter
  */
 function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, $has_text = FALSE) {
-  $texts = _campaignion_recent_supporters_get_action_texts();
   $supporters = array();
 
   // resolve "default" name display
