@@ -65,4 +65,12 @@ if (drupal_multilingual()) {
   }
 }
 
+// stub for module_exists called in language_list() which gets called
+// by our code. we want to prevent loading module.inc and cache.inc which
+// would be needed for module_list() --> so stub it.
+// simply returning false does the trick for now.
+function module_exists($name) {
+  return FALSE;
+}
+
 campaignion_recent_supporters_all_action_json($_GET['types'], $lang);
