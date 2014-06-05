@@ -471,9 +471,10 @@ function campaignion_recent_supporters_json($nid) {
 /**
  * polling callback function for getting recent supporter of all action pages
  */
-function campaignion_recent_supporters_all_action_json($types) {
+function campaignion_recent_supporters_all_action_json($types, $lang = NULL) {
   $types      = explode(',', $types);
-  $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types);
+  $name_display     = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT;
+  $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $lang);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_json_output(array('supporters' => $supporters));
@@ -519,7 +520,7 @@ SQL;
 /**
  * helper function: query all supporters for specified types
  */
-function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, $limit = 10) {
+function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, $limit = 10, $lang = NULL) {
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   $sql = <<<SQL
 SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, n.tnid, n.type, n.title, n.nid, n.language
@@ -539,7 +540,7 @@ SQL;
     array(':types' => $types)
   );
 
-  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, TRUE);
+  return _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, TRUE, $lang);
 }
 
 /**
@@ -623,17 +624,21 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
       $supporter['nid'] = $item->nid;
     }
     if ($has_text) {
-      # use drupal display language or GET param 'lang' otherwise
+      # use drupal display language or param $lang otherwise
       global $language_url;
       global $language;
-      $lang = NULL;
-      if (isset($language)) {
-        $lang = $language->language;
-      } elseif (isset($_GET['lang'])) {
-        $lang = check_plain($_GET['lang']);
+      if (!isset($language) && !empty($lang)) {
+        $languages = language_list();
+        if (isset($languages[$lang]) && $languages[$lang]->enabled == "1") {
+          $language = $languages[$lang];
+        } else {
+          $language = language_default();
+        }
+      } else {
+        $language = language_default();
       }
 
-      $titem = _campaignion_recent_supporters_translation_from_item($item, $lang);
+      $titem = _campaignion_recent_supporters_translation_from_item($item, $language);
       $supporter['action_title'] = $titem['title'];
       $supporter['action_lang'] = $titem['lang'];
       $supporter['nid'] = $titem['nid'];
@@ -642,7 +647,12 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
       }
       $supporter['action_type']  = $item->type;
       # @TODO implement better caching
-      $supporter['action_url']   = $base_url.'/'._campaignion_recent_supporters_resolve_nid_to_alias($supporter['nid'], $lang);
+      $path_alias = _campaignion_recent_supporters_resolve_nid_to_alias($supporter['nid'], $language);
+      $path = $path_alias;
+      $options = array('external' => FALSE, 'language' => $language, 'prefix' => NULL);
+      locale_url_outbound_alter($path_alias, $options, $path);
+      $prefix = isset($options['prefix']) ? $options['prefix'] : '';
+      $supporter['action_url']   = $base_url.'/'.$prefix.$path_alias;
     }
     $supporters[] = $supporter;
   }
@@ -818,14 +828,16 @@ function campaignion_recent_supporters_field_instances($entity_type, $node, $fie
  * Helper function: returns an alias for the specified nid and language if
  * one is found, returns 'node/$nid' otherwise.
  */
-function _campaignion_recent_supporters_resolve_nid_to_alias($nid, $path_language = LANGUAGE_NONE) {
+function _campaignion_recent_supporters_resolve_nid_to_alias($nid, $language) {
   $path = 'node/' . $nid;
   // code taken from drupal_lookup_path()
   $args = array(
     ':path' => $path,
-    ':language' => $path_language,
+    ':language' => $language->language,
     ':language_none' => LANGUAGE_NONE,
   );
+  $path_language = $language->language;
+
   // Always get the language-specific alias before the language-neutral
   // one. For example 'de' is less than 'und' so the order needs to be
   // ASC, while 'xx-lolspeak' is more than 'und' so the order needs to
@@ -849,10 +861,11 @@ function _campaignion_recent_supporters_resolve_nid_to_alias($nid, $path_languag
   # @TODO url localization
 
   if (!empty($alias)) {
-    return $alias['alias'];
+    $path_alias = $alias['alias'];
   } else {
-    return $path;
+    $path_alias = $path;
   }
+  return $path_alias;
 }
 
 /**
@@ -861,13 +874,8 @@ function _campaignion_recent_supporters_resolve_nid_to_alias($nid, $path_languag
  * If no translation is found, it returns the information about the "original"
  * node.
  */
-function _campaignion_recent_supporters_translation_from_item($item, $lang) {
-  # if no $lang is given use the site default language
-  if (empty($lang)) {
-    # @TODO language_default for json poll_all.php not working,
-    # because the bootstrap level is too low
-    $lang = language_default('language');
-  }
+function _campaignion_recent_supporters_translation_from_item($item, $language) {
+  $lang = $language->language;
   $titem = array(
     'nid' => $item->nid,
     'title' => $item->title,

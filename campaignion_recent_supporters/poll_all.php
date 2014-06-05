@@ -37,6 +37,9 @@ _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
 require_once DRUPAL_ROOT . '/includes/common.inc';
+# lock.inc needed by locale.module
+require_once DRUPAL_ROOT . '/includes/lock.inc';
+require_once DRUPAL_ROOT . '/modules/locale/locale.module';
 require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
 
 if (!isset($_GET['types'])) {
@@ -44,5 +47,22 @@ if (!isset($_GET['types'])) {
   exit;
 }
 
+global $conf;
+// we want to avoid the whole _drupal_bootstrap_variables() so we only
+// load what we need (eg. we are not setting any caches)
+// loading variables into $conf should suffice as the code which gets
+// called only needs variable_get()
+// (code from variable_initialize())
+$variables = array_map('unserialize', db_query('SELECT name, value FROM {variable}')->fetchAllKeyed());
+foreach ($variables as $var_key => $var_value) {
+  $conf[$var_key] = $var_value;
+}
 
-campaignion_recent_supporters_all_action_json($_GET['types']);
+$lang = NULL;
+if (drupal_multilingual()) {
+  if (isset($_GET['lang'])) {
+    $lang = $_GET['lang'];
+  }
+}
+
+campaignion_recent_supporters_all_action_json($_GET['types'], $lang);
