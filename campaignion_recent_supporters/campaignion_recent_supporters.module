@@ -313,6 +313,9 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
     }
   }
   $polling_url      = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'campaignion_recent_supporters') . '/poll_all.php?types=' . implode(',', $types);
+  if (drupal_multilingual()) {
+    $polling_url   .= isset($language->language) ? "&lang=".$language->language : '';
+  }
   $block['subject'] = t('Recent supporters');
   $name_display     = $saved_settings['name_display'];
   $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display);
