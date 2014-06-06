@@ -669,7 +669,7 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
       }
 
       # @TODO implement better caching
-      $path_alias = _campaignion_recent_supporters_resolve_nid_to_alias($supporter['nid'], $language);
+      $path_alias = _campaignion_recent_supporters_resolve_nid_to_alias($supporter['action_nid'], $language);
       $path = $path_alias;
       $options = array('external' => FALSE, 'language' => $language, 'prefix' => NULL);
       locale_url_outbound_alter($path_alias, $options, $path);
