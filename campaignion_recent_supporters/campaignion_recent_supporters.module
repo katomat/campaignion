@@ -580,7 +580,7 @@ function _campaignion_recent_supporters_get_action_texts($types = array()) {
 /**
  * helper function: compile a list of recent supporters from the DB result parameter
  */
-function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, $has_text = FALSE) {
+function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, $has_text = FALSE, $lang = NULL) {
   $supporters = array();
 
   // resolve "default" name display
