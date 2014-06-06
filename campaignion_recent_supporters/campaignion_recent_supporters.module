@@ -318,7 +318,7 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
   }
   $block['subject'] = t('Recent supporters');
   $name_display     = $saved_settings['name_display'];
-  $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display);
+  $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $language->language);
   $texts = _campaignion_recent_supporters_get_action_texts($types);
   $block['content'] = array(
     '#theme'        => 'recent_supporters',
