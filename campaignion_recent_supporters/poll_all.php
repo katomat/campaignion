@@ -37,9 +37,6 @@ _drupal_bootstrap_configuration();
 _drupal_bootstrap_database();
 
 require_once DRUPAL_ROOT . '/includes/common.inc';
-# lock.inc needed by locale.module
-require_once DRUPAL_ROOT . '/includes/lock.inc';
-require_once DRUPAL_ROOT . '/modules/locale/locale.module';
 require_once dirname(__FILE__) . '/campaignion_recent_supporters.module';
 
 if (!isset($_GET['types'])) {
@@ -47,30 +44,13 @@ if (!isset($_GET['types'])) {
   exit;
 }
 
-global $conf;
-// we want to avoid the whole _drupal_bootstrap_variables() so we only
-// load what we need (eg. we are not setting any caches)
-// loading variables into $conf should suffice as the code which gets
-// called only needs variable_get()
-// (code from variable_initialize())
-$variables = array_map('unserialize', db_query('SELECT name, value FROM {variable}')->fetchAllKeyed());
-foreach ($variables as $var_key => $var_value) {
-  $conf[$var_key] = $var_value;
+$lang         = isset($_GET['lang'])         ? $_GET['lang']         : NULL;
+$limit        = isset($_GET['limit'])        ? $_GET['limit']        : NULL;
+$name_display = isset($_GET['name_display']) ? $_GET['name_display'] : NULL;
+$hash         = isset($_GET['hash'])         ? $_GET['hash']         : NULL;
+if ($hash !=  drupal_hmac_base64($lang.$limit.$name_display, drupal_get_hash_salt())) {
+  campaignion_recent_supporters_send_invalid_hash();
+  exit;
 }
 
-$lang = NULL;
-if (drupal_multilingual()) {
-  if (isset($_GET['lang'])) {
-    $lang = $_GET['lang'];
-  }
-}
-
-// stub for module_exists called in language_list() which gets called
-// by our code. we want to prevent loading module.inc and cache.inc which
-// would be needed for module_list() --> so stub it.
-// simply returning false does the trick for now.
-function module_exists($name) {
-  return FALSE;
-}
-
-campaignion_recent_supporters_all_action_json($_GET['types'], $lang);
+campaignion_recent_supporters_all_action_json($_GET['types'], $lang, $limit, $name_display);

@@ -313,13 +313,22 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
     }
   }
   $polling_url      = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'campaignion_recent_supporters') . '/poll_all.php?types=' . implode(',', $types);
-  if (drupal_multilingual()) {
-    $polling_url   .= isset($language->language) ? "&lang=".$language->language : '';
-  }
-  $block['subject'] = t('Recent supporters');
+
+  // hash the provided params we rely on in the JSON callback (lang, limit, name_display)
+  // for safety reasons
+  $default_language = language_default();
+  $lang             = isset($language->language) ? $language->language : $default_language->language;
   $name_display     = $saved_settings['name_display'];
-  $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $language->language);
+  $limit            = NULL;
+  $hash             = drupal_hmac_base64($lang.$limit.$name_display, drupal_get_hash_salt());
+  $polling_url     .= isset($lang) ? "&lang=".$lang : '';
+  $polling_url     .= isset($name_display) ? "&name_display=".$name_display : '';
+  $polling_url     .= "&hash=".$hash;
+
+  $supporters       = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $lang);
   $texts = _campaignion_recent_supporters_get_action_texts($types);
+
+  $block['subject'] = t('Recent supporters');
   $block['content'] = array(
     '#theme'        => 'recent_supporters',
     '#supporters'   => $supporters,
@@ -350,6 +359,8 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
         'visibleCount'    => $saved_settings['visible_count'],
         'pollingURL'      => $polling_url,
         'types'           => $types,
+        'lang'            => $lang,
+        'nameDisplay'     => $name_display,
         'allActions'      => TRUE,
       ),
     ),
@@ -473,18 +484,11 @@ function campaignion_recent_supporters_json($nid) {
 
 /**
  * polling callback function for getting recent supporter of all action pages
+ * BEWARE: this functions assumes that all parameters are already checked and valid!
  */
-function campaignion_recent_supporters_all_action_json($types, $lang = NULL) {
+function campaignion_recent_supporters_all_action_json($types, $lang = NULL, $limit = 10, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT) {
   $types      = explode(',', $types);
-  $defaults = array(
-    'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
-    'visible_count'  => 6,
-    'cycle_toggle'   => 0,
-    'country_toggle' => 1,
-  );
-  $saved_settings = variable_get('campaignion_recent_supporters_settings', $defaults);
-  $name_display     = $saved_settings['name_display'];
-  $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, 10, $lang);
+  $supporters = _campaignion_recent_supporters_get_supporters_all_actions($types, $name_display, $limit, $lang);
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_json_output(array('supporters' => $supporters));
@@ -497,6 +501,17 @@ function campaignion_recent_supporters_send_empty_json() {
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_json_output(array('supporters' => array()));
+}
+
+/**
+ * poll_all.php callback function for returning if the hash was invalid.
+ */
+function campaignion_recent_supporters_send_invalid_hash() {
+  drupal_add_http_header("Access-Control-Allow-Origin", "*");
+  drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
+  drupal_add_http_header('Status', '403 Forbidden');
+  watchdog('access denied: hash mismatch', 'poll_all.php', NULL, WATCHDOG_WARNING);
+  drupal_json_output(array());
 }
 
 /**
@@ -531,7 +546,11 @@ SQL;
  * helper function: query all supporters for specified types
  */
 function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, $limit = 10, $lang = NULL) {
+  # @TODO variable_get does not read variable when called from JSON (as vars are not loaded by poll_all.php)
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
+  if (!$limit) {
+    $limit = 10;
+  }
 // get translations: na - activity node, nt - any available node translated into $lang, no - the "original" node (ie. the translation source)
   $sql = <<<SQL
 SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, na.tnid, na.type, na.title, na.nid, na.language, nt.language as tlanguage, nt.title as ttitle, nt.nid as nt_nid, no.language as olanguage, no.title as otitle, no.language as olanguage, no.nid as onid
@@ -637,20 +656,6 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
       $supporter['nid'] = $item->nid;
     }
     if ($has_text) {
-      # use drupal display language or param $lang otherwise
-      global $language_url;
-      global $language;
-      if (!isset($language) && !empty($lang)) {
-        $languages = language_list();
-        if (isset($languages[$lang]) && $languages[$lang]->enabled == "1") {
-          $language = $languages[$lang];
-        } else {
-          $language = language_default();
-        }
-      } else {
-        $language = language_default();
-      }
-
       $supporter['nid']          = $item->nid;
       $supporter['action_type']  = $item->type;
 
@@ -668,13 +673,7 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
         $supporter['action_lang']  = $item->olanguage;
       }
 
-      # @TODO implement better caching
-      $path_alias = _campaignion_recent_supporters_resolve_nid_to_alias($supporter['action_nid'], $language);
-      $path = $path_alias;
-      $options = array('external' => FALSE, 'language' => $language, 'prefix' => NULL);
-      locale_url_outbound_alter($path_alias, $options, $path);
-      $prefix = isset($options['prefix']) ? $options['prefix'] : '';
-      $supporter['action_url']   = $base_url.'/'.$prefix.$path_alias;
+      $supporter['action_url']   = $base_url.'/node/'.$supporter['action_nid'];
     }
     $supporters[] = $supporter;
   }
@@ -844,75 +843,4 @@ function campaignion_recent_supporters_field_instances($entity_type, $node, $fie
     }
   }
   return $recent_supporter_fields;
-}
-
-/**
- * Helper function: returns an alias for the specified nid and language if
- * one is found, returns 'node/$nid' otherwise.
- */
-function _campaignion_recent_supporters_resolve_nid_to_alias($nid, $language) {
-  $path = 'node/' . $nid;
-  // code taken from drupal_lookup_path()
-  $args = array(
-    ':path' => $path,
-    ':language' => $language->language,
-    ':language_none' => LANGUAGE_NONE,
-  );
-  $path_language = $language->language;
-
-  // Always get the language-specific alias before the language-neutral
-  // one. For example 'de' is less than 'und' so the order needs to be
-  // ASC, while 'xx-lolspeak' is more than 'und' so the order needs to
-  // be DESC. We also order by pid ASC so that fetchAllKeyed() returns
-  // the most recently created alias for each source. Subsequent queries
-  // using fetchField() must use pid DESC to have the same effect.
-  // For performance reasons, the query builder is not used here.
-  if ($path_language == LANGUAGE_NONE) {
-    // Prevent PDO from complaining about a token the query doesn't use.
-    unset($args[':language']);
-    $result = db_query('SELECT source, alias FROM {url_alias} WHERE source IN (:path) AND language = :language_none ORDER BY pid ASC', $args);
-  }
-  elseif ($path_language < LANGUAGE_NONE) {
-    $result = db_query('SELECT source, alias FROM {url_alias} WHERE source IN (:path) AND language IN (:language, :language_none) ORDER BY language ASC, pid ASC', $args);
-  }
-  else {
-    $result = db_query('SELECT source, alias FROM {url_alias} WHERE source IN (:path) AND language IN (:language, :language_none) ORDER BY language DESC, pid ASC', $args);
-  }
-  $alias = $result->fetchAssoc();
-
-  # @TODO url localization
-
-  if (!empty($alias)) {
-    $path_alias = $alias['alias'];
-  } else {
-    $path_alias = $path;
-  }
-  return $path_alias;
-}
-
-/**
- * Helper function: returns an array of translated information about
- * a previously loaded node database object.
- * If no translation is found, it returns the information about the "original"
- * node.
- */
-function _campaignion_recent_supporters_translation_from_item($item, $language) {
-  $lang = $language->language;
-  $titem = array(
-    'nid' => $item->nid,
-    'title' => $item->title,
-    'lang' => $item->language,
-  );
-  // load possible translated item
-  if ($item->language != $lang) {
-    $result = db_query('SELECT nid, title, language, tnid FROM {node} WHERE tnid = :nid AND language = :lang ORDER BY nid ASC', array(':nid' => $titem['nid'], ':lang' => $lang));
-    $tnode = $result->fetchAssoc();
-    if (!empty($tnode)) {
-      $titem['orig_nid'] = $item->nid;
-      $titem['nid'] = $tnode['nid'];
-      $titem['lang'] = $tnode['language'];
-      $titem['title'] = $tnode['title'];
-    }
-  }
-  return $titem;
 }
