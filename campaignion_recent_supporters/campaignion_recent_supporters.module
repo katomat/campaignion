@@ -177,12 +177,14 @@ function campaignion_recent_supporters_block_info() {
  * Implements hook_block_view().
  */
 function campaignion_recent_supporters_block_view($delta = '') {
-  $block = NULL;
-  if ($delta === 'recent_supporters') {
-    _campaignion_recent_supporters_block_recent_supporters($block);
-  }
-  elseif ($delta === 'recent_supporters_all_actions') {
-    _campaignion_recent_supporters_block_recent_supporters_all_actions($block);
+  $block = array();
+  switch ($delta) {
+    case 'recent_supporters':
+      $block = _campaignion_recent_supporters_block_recent_supporters();
+      break;
+    case 'recent_supporters_all_actions':
+      $block = _campaignion_recent_supporters_block_recent_supporters_all_actions();
+      break;
   }
   return $block;
 }
@@ -191,7 +193,8 @@ function campaignion_recent_supporters_block_view($delta = '') {
  * creates content for a recent supporters block for 1 specific action;
  * called from hook_block_view();
  */
-function _campaignion_recent_supporters_block_recent_supporters(&$block) {
+function _campaignion_recent_supporters_block_recent_supporters() {
+  $block = array();
   if (($node = menu_get_object()) == FALSE || isset($node->nid) == FALSE) {
     return NULL;
   }
@@ -249,12 +252,12 @@ function _campaignion_recent_supporters_block_recent_supporters(&$block) {
       )
     )), 'setting');
 
-    // @TODO only load countries once if more than one block on a page
     if ($country) {
       $dir = _campaignion_recent_supporters_countries_dir();
       drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));
     }
   }
+  return $block;
 }
 
 /**
@@ -265,14 +268,7 @@ function _campaignion_recent_supporters_get_types_defaults($lang_code = NULL) {
   global $language;
   static $action_type_info;
   if (!isset($action_type_info)) {
-    if (function_exists('module_invoke_all')) {
-      $action_type_info = \Drupal\campaignion\Action\TypeBase::types();
-    }
-    else {
-      include_once DRUPAL_ROOT . '/includes/module.inc';
-      include_once DRUPAL_ROOT . '/includes/cache.inc';
-      $action_type_info = module_invoke_all('campaignion_action_info');
-    }
+    $action_type_info = \Drupal\campaignion\Action\TypeBase::types();
   }
   $saved_lang = $language;
   if (isset($lang_code)) {
@@ -296,7 +292,8 @@ function _campaignion_recent_supporters_get_types_defaults($lang_code = NULL) {
  * action pages with configured texts;
  * called from hook_block_view();
  */
-function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$block) {
+function _campaignion_recent_supporters_block_recent_supporters_all_actions() {
+  $block = array();
   global $language;
   $defaults = array(
     'name_display'   => CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT,
@@ -370,6 +367,7 @@ function _campaignion_recent_supporters_block_recent_supporters_all_actions(&$bl
     $dir = _campaignion_recent_supporters_countries_dir();
     drupal_add_js($dir . '/' . $GLOBALS['language']->language . '.js', array('scope' => 'footer', 'preprocess' => FALSE));
   }
+  return $block;
 }
 
 /**
@@ -485,6 +483,7 @@ function campaignion_recent_supporters_json($nid) {
 /**
  * polling callback function for getting recent supporter of all action pages
  * BEWARE: this functions assumes that all parameters are already checked and valid!
+ * ATTENTION: minimal bootstrap
  */
 function campaignion_recent_supporters_all_action_json($types, $lang = NULL, $limit = 10, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT) {
   $types      = explode(',', $types);
@@ -496,6 +495,7 @@ function campaignion_recent_supporters_all_action_json($types, $lang = NULL, $li
 
 /**
  * poll_all.php callback function for return an empty array (in case of error).
+ * ATTENTION: minimal bootstrap
  */
 function campaignion_recent_supporters_send_empty_json() {
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
@@ -505,12 +505,13 @@ function campaignion_recent_supporters_send_empty_json() {
 
 /**
  * poll_all.php callback function for returning if the hash was invalid.
+ * ATTENTION: minimal bootstrap
  */
 function campaignion_recent_supporters_send_invalid_hash() {
   drupal_add_http_header("Access-Control-Allow-Origin", "*");
   drupal_add_http_header("Access-Control-Allow-Headers", "Content-Type");
   drupal_add_http_header('Status', '403 Forbidden');
-  watchdog('access denied: hash mismatch', 'poll_all.php', NULL, WATCHDOG_WARNING);
+  // no wtachlog log possible due to minimal bootstrap
   drupal_json_output(array());
 }
 
@@ -544,14 +545,16 @@ SQL;
 
 /**
  * helper function: query all supporters for specified types
+ * ATTENTION: minimal bootstrap possible
  */
 function _campaignion_recent_supporters_get_supporters_all_actions(array $types, $name_display = CAMPAIGNION_RECENT_SUPPORTERS_NAME_DISPLAY_DEFAULT, $limit = 10, $lang = NULL) {
-  # @TODO variable_get does not read variable when called from JSON (as vars are not loaded by poll_all.php)
+  // variable_get does read empty $conf when called from JSON (as vars are not loaded by poll_all.php)
+  // --> change default value here if needed
   $addressfield = variable_get('campaignion_recent_supporters_address_field', 'field_address');
   if (!$limit) {
     $limit = 10;
   }
-// get translations: na - activity node, nt - any available node translated into $lang, no - the "original" node (ie. the translation source)
+  // get translations: na - activity node, nt - any available node translated into $lang, no - the "original" node (ie. the translation source)
   $sql = <<<SQL
 SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, na.tnid, na.type, na.title, na.nid, na.language, na.status, nt.language as tlanguage, nt.title as ttitle, nt.nid as nt_nid, nt.status as tstatus, no.language as olanguage, no.title as otitle, no.language as olanguage, no.nid as onid, no.status as ostatus
   FROM {campaignion_activity_webform} caw
@@ -601,6 +604,7 @@ function _campaignion_recent_supporters_get_action_texts($types = array()) {
 
 /**
  * helper function: compile a list of recent supporters from the DB result parameter
+ * ATTENTION: minimal bootstrap possible
  */
 function _campaignion_recent_supporters_build_supporter_list($result, $addressfield, $name_display, $has_text = FALSE, $lang = NULL) {
   $supporters = array();
