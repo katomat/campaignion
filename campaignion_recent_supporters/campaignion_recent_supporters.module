@@ -534,7 +534,7 @@ FROM {node} n
   INNER JOIN {redhen_contact} rc USING (contact_id)
   INNER JOIN {webform_tracking} wt ON wt.nid=caw.nid AND wt.sid=caw.sid
   LEFT OUTER JOIN {field_data_$addressfield} fdfa ON fdfa.entity_id=rc.contact_id
-WHERE n.nid=:nid OR n.nid IN(SELECT tn.nid FROM {node} tn INNER JOIN {node} n USING(tnid) WHERE n.nid=:nid AND n.tnid<>0)
+WHERE n.status = 1 AND (n.nid=:nid OR n.nid IN(SELECT tn.nid FROM {node} tn INNER JOIN {node} n USING(tnid) WHERE n.nid=:nid AND n.tnid<>0))
 ORDER BY ca.created DESC
 SQL;
   $result = db_query_range($sql, 0, $limit - 1, array(':nid' => $nid));
@@ -553,7 +553,7 @@ function _campaignion_recent_supporters_get_supporters_all_actions(array $types,
   }
 // get translations: na - activity node, nt - any available node translated into $lang, no - the "original" node (ie. the translation source)
   $sql = <<<SQL
-SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, na.tnid, na.type, na.title, na.nid, na.language, nt.language as tlanguage, nt.title as ttitle, nt.nid as nt_nid, no.language as olanguage, no.title as otitle, no.language as olanguage, no.nid as onid
+SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.field_address_country, na.tnid, na.type, na.title, na.nid, na.language, na.status, nt.language as tlanguage, nt.title as ttitle, nt.nid as nt_nid, nt.status as tstatus, no.language as olanguage, no.title as otitle, no.language as olanguage, no.nid as onid, no.status as ostatus
   FROM {campaignion_activity_webform} caw
   INNER JOIN {node} na ON caw.nid = na.nid
   LEFT OUTER JOIN {node} nt ON na.tnid != 0 AND nt.tnid = na.tnid AND nt.language = :lang
@@ -562,7 +562,7 @@ SELECT rc.first_name, rc.last_name, ca.created as timestamp, wt.country, fdfa.fi
   INNER JOIN {redhen_contact} rc USING (contact_id)
   INNER JOIN {webform_tracking} wt ON wt.nid = caw.nid AND wt.sid = caw.sid
   LEFT OUTER JOIN {field_data_$addressfield} fdfa ON fdfa.entity_id = rc.contact_id
-  WHERE na.type IN (:types)
+  WHERE na.status = 1 AND na.type IN (:types)
   ORDER BY ca.created DESC
 SQL;
   $result = db_query_range(
@@ -663,11 +663,11 @@ function _campaignion_recent_supporters_build_supporter_list($result, $addressfi
       $supporter['action_nid']   = $item->nid;
       $supporter['action_lang']  = $item->language;
       // overwrite action details with any translated informations
-      if (isset($item->ttitle)) {
+      if (isset($item->ttitle) && $item->tstatus) {
         $supporter['action_title'] = $item->ttitle;
         $supporter['action_nid']   = $item->nt_nid;
         $supporter['action_lang']  = $item->tlanguage;
-      } elseif (isset($item->otitle)) {
+      } elseif (isset($item->otitle) && $item->ostatus) {
         $supporter['action_title'] = $item->otitle;
         $supporter['action_nid']   = $item->onid;
         $supporter['action_lang']  = $item->olanguage;
