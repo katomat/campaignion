@@ -88,7 +88,14 @@
 
 /* ----------- Filter new --------------*/
 
-
+.campaignion-manage-ajax-wrapper input.teaser-button,
+.campaignion-manage-ajax-wrapper input.form-submit,
+.campaignion-manage-ajax-wrapper input[type="submit"] {
+    clear: left;
+    display: none;
+    float: left;
+    margin-bottom: 1em;
+}
 
 #campaignion-manage-ajax-wrapper fieldset.filter-removable {
   padding: 0;
@@ -132,13 +139,13 @@
 /* ------- Filter ------------------ */
 
 
-/*.manage-filter-form fieldset {
+.manage-filter-form fieldset {
   border-radius: 0;
 	border: 1px solid #e3dfd7;
 	background: #fff;
 	margin-bottom: .2em;
   clear: both;
-}*/
+}
 .manage-filter-form .fieldset-content {
   padding: .7em 4.5em .5em 1em;
   border-radius: 0;
@@ -156,7 +163,7 @@
 margin-bottom: 0;
 }
 
-.manage-filter-form .fieldset-content > .form-type-checkbox .ilabel {
+.manage-filter-form .fieldset-content .filter-active-toggle .ilabel {
   display: none;
 }
 
@@ -166,7 +173,7 @@ margin-bottom: 0;
 .manage-filter-form .fieldset-content > .form-type-select .selecter,
 .manage-filter-form .fieldset-content > .form-type-select label {
   float: left;
-  margin: 0.5em; 
+  margin: 0.5em;
 }
 .manage-filter-form .fieldset-content > .form-type-select label {
   text-transform: none;
@@ -255,7 +262,7 @@ margin-bottom: 0;
 }
 
 /* bulk operations */
- 
+
 .campaignion-manage-bulkops {
   clear: both;
 }

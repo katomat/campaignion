@@ -29,7 +29,7 @@ Drupal.behaviors.campaignion_manage_filter.attach = function(context) {
   // close button handler
   $('.manage-filter-remove', $wrapper).click(function() {
     $(this).closest('fieldset').hide()
-    .find('input.filter-active-toggle').prop('checked', false).change();
+    .find('.filter-active-toggle input').prop('checked', false).change();
   });
 
   // filter add handler
@@ -38,7 +38,7 @@ Drupal.behaviors.campaignion_manage_filter.attach = function(context) {
     var $self = $(this);
     var filterFieldsetId = $self.attr('data-filter-for');
     var $filterFieldset = $('#' + filterFieldsetId);
-    $('input.filter-active-toggle', $filterFieldset).attr('checked', true);
+    $('.filter-active-toggle input', $filterFieldset).attr('checked', true);
   });
 
   $('ul.manage-filter-dropdown', context).listdropdown({
@@ -48,6 +48,24 @@ Drupal.behaviors.campaignion_manage_filter.attach = function(context) {
   $wrapper.find('.ctools-auto-submit-click').click(function() {
     $(this).mousedown();
   }).hide();
+
+
+  var $liveToggle = $('.toggle-live-filters', context);
+  var $submit = $('.ctools-auto-submit-click', context);
+  var UpdateLiveFilters = function(event) {
+    if ($liveToggle.attr('checked') === 'checked') {
+      $submit.attr('style', 'display: none;').addClass('ctools-auto-submit-click');
+      if (event) {
+        $submit.click();
+      }
+    } else {
+      $submit.removeClass('ctools-auto-submit-click');
+      $submit.attr('style', '');
+    }
+  }
+  // toggle live filters.
+  $liveToggle.change(UpdateLiveFilters);
+  UpdateLiveFilters();
 };
 
 })(jQuery);

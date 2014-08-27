@@ -2,6 +2,11 @@
 
 function campaignion_manage_install() {
   _campaignion_manage_deactivate_clientside_validation();
+  variable_set('campaignion_manage_live_filters_default', TRUE);
+}
+
+function campaignion_manage_uninstall() {
+  variable_del('campaignion_manage_live_filters_default');
 }
 
 function _campaignion_manage_deactivate_clientside_validation() {
@@ -34,4 +39,8 @@ function _campaignion_manage_deactivate_clientside_validation() {
  */
 function campaignion_manage_update_7101() {
   _campaignion_manage_deactivate_clientside_validation();
+}
+
+function campaignion_manage_update_7102() {
+  variable_set('campaignion_manage_live_filters_default', TRUE);
 }
