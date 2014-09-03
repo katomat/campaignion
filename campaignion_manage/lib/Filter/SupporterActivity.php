@@ -159,7 +159,7 @@ class SupporterActivity extends Base implements FilterInterface {
   }
 
   public function isApplicable($current) {
-    return empty($current) && count($this->typesInUse()) > 1;
+    return count($this->typesInUse()) > 1;
   }
 
   public function defaults() {
