@@ -10,11 +10,8 @@ class SupporterTag extends Base implements FilterInterface {
   }
 
   protected function getOptions() {
-    $query  = clone $this->query;
-    $query->innerJoin('field_data_supporter_tags', 'st', "r.contact_id = st.entity_id AND st.entity_type = 'redhen_contact'");
+    $query = db_select('field_data_supporter_tags', 'st');
     $query->innerJoin('taxonomy_term_data', 't', "st.supporter_tags_tid = t.tid");
-    $fields =& $query->getFields();
-    $fields = array();
     $query->fields('t', array('tid', 'name'));
     $query->groupBy('t.tid');
 

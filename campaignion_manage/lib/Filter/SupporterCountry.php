@@ -10,17 +10,13 @@ class SupporterCountry extends Base implements FilterInterface {
   }
 
   protected function getOptions() {
-    $query = clone $this->query;
-    $query->innerJoin('field_data_field_address', 'ctr', "r.contact_id = ctr.entity_id AND ctr.entity_type = 'redhen_contact'");
-    $fields =& $query->getFields();
-    $fields = array();
-    $query->fields('ctr', array('field_address_country'));
-    $query->groupBy('ctr.field_address_country');
+    $result = db_query("SELECT field_address_country FROM field_data_field_address GROUP BY field_address_country");
 
-    $countries_in_use = $query->execute()->fetchCol();
-    $countries_in_use = array_flip($countries_in_use);
-
-    return array_intersect_key(country_get_list(), $countries_in_use);
+    if ($in_use = $result->fetchCol()) {
+      $in_use = array_flip($in_use);
+      return array_intersect_key(country_get_list(), $in_use);
+    }
+    return array();
   }
 
   public function formElement(array &$form, array &$form_state, array &$values) {
