@@ -45,7 +45,7 @@
         <a class="tooltipped" title="Want to leave?" href="/user/logout">Logout</a>
       </li>
       <li>
-        <a class="tooltipped" href="http://advocacyengine.desk.com/" title="Visit our support center!">Help &amp; Support</a>
+        <a class="tooltipped" href="https://moreonion.zendesk.com/hc" title="Visit our support center!">Help &amp; Support</a>
       </li>
       <li>
         <a href="">Settings</a>
